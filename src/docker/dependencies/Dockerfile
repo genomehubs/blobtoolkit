@@ -25,8 +25,8 @@ RUN apt-get update \
 WORKDIR /opt
 
 RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" \
-    bash Miniforge3.sh -b -p /opt/conda \
-    rm Miniforge3.sh
+    && bash Miniforge3.sh -b -p /opt/conda \
+    && rm Miniforge3.sh
 
 ARG CONDA_DIR=/opt/conda
 
