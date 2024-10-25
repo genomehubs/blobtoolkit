@@ -24,10 +24,14 @@ RUN apt-get update \
 
 WORKDIR /opt
 
-RUN wget -P /usr/local/src https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh \
-    && bash /usr/local/src/Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda \
-    && /opt/conda/bin/conda install -n base conda-libmamba-solver \
-    && rm /usr/local/src/Miniconda3-latest-Linux-x86_64.sh
+RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh" \
+    bash Miniforge3.sh -b -p opt/conda \
+    rm Miniforge3.sh
+
+ARG CONDA_DIR=/opt/conda
+
+RUN $CONDA_DIR/bin/conda env create -f /tmp/env.yaml \
+    && $CONDA_DIR/bin/conda clean --all --yes
 
 RUN mkdir -p /blobtoolkit \
     && useradd -m blobtoolkit
@@ -64,11 +68,6 @@ RUN chown -R blobtoolkit:blobtoolkit /blobtoolkit \
     && chown -R blobtoolkit:blobtoolkit /nfs \
     && chown -R blobtoolkit:blobtoolkit /lustre
 
-ARG CONDA_DIR=/opt/conda
-
-RUN $CONDA_DIR/bin/conda env create -f /tmp/env.yaml \
-    && $CONDA_DIR/bin/conda clean --all --yes
-
 COPY setup.sh /blobtoolkit
 
 RUN /blobtoolkit/setup.sh \
@@ -76,16 +75,6 @@ RUN /blobtoolkit/setup.sh \
     && rm -r /tmp/*
 
 USER blobtoolkit
-
-
-# RUN echo ". $CONDA_DIR/etc/profile.d/conda.sh" >> ~/.bashrc
-
-# RUN $CONDA_DIR/bin/conda install mamba -n base -c conda-forge
-
-# RUN mkdir -p /blobtoolkit/.conda
-
-# WORKDIR /blobtoolkit
-
 
 ENV CONDA_DEFAULT_ENV $CONDA_DIR/envs/btk_env
 
