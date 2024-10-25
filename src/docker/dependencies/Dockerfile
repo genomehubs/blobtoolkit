@@ -30,13 +30,13 @@ RUN wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/lat
 
 ARG CONDA_DIR=/opt/conda
 
+COPY env.yaml /tmp/env.yaml
+
 RUN $CONDA_DIR/bin/conda env create -f /tmp/env.yaml \
     && $CONDA_DIR/bin/conda clean --all --yes
 
 RUN mkdir -p /blobtoolkit \
     && useradd -m blobtoolkit
-
-COPY env.yaml /tmp/env.yaml
 
 COPY blobtoolkit-api-linux /blobtoolkit/blobtoolkit-api
 COPY blobtoolkit-viewer-linux /blobtoolkit/blobtoolkit-viewer
