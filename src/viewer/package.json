@@ -1,6 +1,6 @@
 {
   "name": "blobtoolkit-viewer",
-  "version": "4.3.13",
+  "version": "4.4.0",
   "repository": "https://github.com/blobtoolkit/viewer",
   "description": "",
   "main": "index.js",
