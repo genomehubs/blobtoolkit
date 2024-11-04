@@ -85,6 +85,68 @@ docker run -it --rm --name blobtools -p 8000:8000 -p 8001:8001 genomehubs/blobto
 
 ## BlobToolKit pipeline
 
+```mermaid
+%%{ init: { 'flowchart': { 'curve': 'step' } } }%%
+flowchart TD
+    Assembly:::inputclass@{ shape: document, label: "Assembly *FASTA*"} --> windowmasker:::processclass
+    windowmasker --> MaskedAssembly:::fileclass@{ shape: document, label: "Masked assembly *FASTA*"}
+    MaskedAssembly --> BUSCO:::processclass
+    BUSCO --> BuscoFullTable:::fileclass@{ shape: documents, label: "BUSCO full table *TSV*"}
+    MaskedAssembly --> chunk_fasta:::processclass
+    BuscoFullTable --> chunk_fasta
+    NT:::inputclass@{ shape: database, label: "NCBI\nnt"} -.-> blastn:::processclass
+    chunk_fasta --> BuscoRegions:::fileclass@{ shape: documents, label: "BUSCO regions *FASTA*"}
+    BUSCO --> BuscoSequences:::fileclass@{ shape: documents, label: "BUSCO sequences *FASTA*"}
+    BuscoSequences --> extract_busco_genes:::processclass
+    extract_busco_genes --> BuscoGenes:::fileclass@{ shape: documents, label: "BUSCO genes *FASTA*"}
+    Uniprot:::inputclass@{ shape: database, label: "UniProt\nUniRef 90"} --> blastx[diamond blastx]:::processclass
+    MaskedAssembly --> minimap2:::processclass
+    Reads:::inputclass@{ shape: documents, label: "Read *FASTQ*"} --> minimap2
+    minimap2 --> CRAM:::fileclass@{ shape: documents, label: "mapped reads *BAM*/*CRAM*"}
+    BuscoRegions --> blastx
+    BuscoGenes --> blastp[diamond blastp]:::processclass
+    Uniprot --> blastp
+    blastx --> blastxOut:::fileclass@{ shape: document, label: "blastx results *TSV*"}
+    blastp --> blastpOut:::fileclass@{ shape: document, label: "blastp results *TSV*"}
+    blastxOut --> filter_chunks:::processclass
+    BuscoRegions --> filter_chunks
+    filter_chunks -.-> filteredChunks:::fileclass@{ shape: document, label: "no-hit regions *FASTA*"}
+    blastn -.-> blastnOut:::fileclass@{ shape: document, label: "blastn results *TSV*"}
+    filteredChunks -.-> blastn
+    CRAM --> blobtk_depth[blobtk depth]:::processclass
+    blobtk_depth --> readDepth:::fileclass@{ shape: documents, label: "read coverage depth *BED*"}
+    BuscoFullTable --> count_busco_genes:::processclass
+    MaskedAssembly --> fasta_windows:::processclass
+    count_busco_genes --> BuscoGeneCounts:::fileclass@{ shape: document, label: "BUSCO gene counts *BED*"}
+    fasta_windows --> KmerStats:::fileclass@{ shape: documents, label: "kmer stats *BED*"}
+    BuscoGeneCounts --> combine_outputs:::processclass
+    KmerStats --> combine_outputs
+    NCBITaxonomy:::inputclass@{ shape: database, label: "NCBI taxonomy"} --> blobtools_create[blobtools create]:::processclass
+    blastpOut --> blobtools_create
+    blastxOut --> blobtools_add
+    blastnOut --> blobtools_add
+    readDepth --> combine_outputs
+    combine_outputs --> kbStats:::fileclass@{ shape: document, label: "1kb assembly stats *BED*"}
+    kbStats --> window_stats:::processclass
+    window_stats --> windowStats:::fileclass@{ shape: documents, label: "100kb, 1Mb, 1% & 10% window stats *BED*"}
+    windowStats --> blobtools_create
+    blobtools_create --> BlobDir:::fileclass@{ shape: documents, label: "Initial *BlobDir*"}
+    NCBITaxonomy --> blobtools_add
+    BlobDir --> blobtools_add[blobtools add]:::processclass
+    BlobDir --> blobtools_filter[blobtools filter --summary]:::processclass
+    BlobDir --> blobtk_plot[blobtk plot]:::processclass
+    blobtools_add --> FullBlobDir:::fileclass@{ shape: documents, label: "Complete *BlobDir*"}
+    blobtools_filter --> FullBlobDir
+    blobtk_plot --> FullBlobDir
+
+    classDef inputclass fill:#f969,stroke-width:4px
+    classDef processclass fill:#96f9,stroke-width:4px
+    classDef fileclass fill:#6f99,stroke-width:4px
+    classDef default stroke-width:4px;
+    linkStyle default stroke-width:4px;
+
+```
+
 The BlobToolKit pipeline can be run by creating a YAML config file and environment variables to the `genomehubs/blobtoolkit` docker image.
 
 ```sh

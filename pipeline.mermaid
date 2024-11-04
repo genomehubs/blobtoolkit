@@ -1,0 +1,51 @@
+flowchart TD
+    Assembly@{ shape: document, label: "Assembly *FASTA*"} --> windowmasker
+    windowmasker --> MaskedAssembly@{ shape: document, label: "Masked assembly *FASTA*"}
+    MaskedAssembly --> fasta_windows
+    MaskedAssembly --> BUSCO
+    BUSCO --> BuscoFullTable@{ shape: documents, label: "BUSCO full table *TSV*"}
+    BuscoFullTable --> chunk_fasta
+    MaskedAssembly --> chunk_fasta
+    NT@{ shape: database, label: "NCBI\nnt"} -.-> blastn
+    chunk_fasta --> BuscoRegions@{ shape: documents, label: "BUSCO regions *FASTA*"}
+    BUSCO --> BuscoSequences@{ shape: documents, label: "BUSCO sequences *FASTA*"}
+    BuscoSequences --> extract_busco_genes
+    extract_busco_genes --> BuscoGenes@{ shape: documents, label: "BUSCO genes *FASTA*"}
+    Uniprot@{ shape: database, label: "UniProt\nUniRef 90"} --> blastx[diamond blastx]
+    MaskedAssembly --> minimap2
+    Reads@{ shape: documents, label: "Read *FASTQ*"} --> minimap2
+    fasta_windows --> KmerStats@{ shape: documents, label: "kmer stats *BED*"}
+    minimap2 --> CRAM@{ shape: documents, label: "mapped reads *BAM*/*CRAM*"}
+    BuscoRegions --> blastx
+    BuscoGenes --> blastp
+    Uniprot --> blastp[diamond blastp]
+    blastx --> blastxOut@{ shape: document, label: "blastx results *TSV*"}
+    blastp --> blastpOut@{ shape: document, label: "blastp results *TSV*"}
+    blastxOut --> filter_chunks
+    BuscoRegions --> filter_chunks
+    filter_chunks -.-> filteredChunks@{ shape: document, label: "no-hit regions *FASTA*"}
+    blastn -.-> blastnOut@{ shape: document, label: "blastn results *TSV*"}
+    filteredChunks -.-> blastn
+    CRAM --> blobtk_depth[blobtk depth]
+    blobtk_depth --> readDepth@{ shape: documents, label: "read coverage depth *BED*"}
+    BuscoFullTable --> count_busco_genes
+    count_busco_genes --> BuscoGeneCounts@{ shape: document, label: "BUSCO gene counts *BED*"}
+    KmerStats --> combine_outputs
+    NCBITaxonomy@{ shape: database, label: "NCBI taxonomy"} --> blobtools_create[blobtools create]
+    blastpOut --> blobtools_create
+    BuscoGeneCounts --> combine_outputs
+    blastxOut --> blobtools_add
+    blastnOut --> blobtools_add
+    readDepth --> combine_outputs
+    combine_outputs --> kbStats@{ shape: document, label: "1kb assembly stats *BED*"}
+    kbStats --> window_stats
+    window_stats --> windowStats@{ shape: documents, label: "100kb, 1Mb, 1% & 10% window stats *BED*"}
+    windowStats --> blobtools_create
+    blobtools_create --> BlobDir@{ shape: documents, label: "Initial *BlobDir*"}
+    NCBITaxonomy@{ shape: database, label: "NCBI taxonomy"} --> blobtools_add
+    BlobDir --> blobtools_add[blobtools add]
+    BlobDir --> blobtools_filter[blobtools_filter --summary]
+    BlobDir --> blobtk_plot[blobtk plot]
+    blobtools_add --> FullBlobDir@{ shape: documents, label: "Complete *BlobDir*"}
+    blobtools_filter --> FullBlobDir
+    blobtk_plot --> FullBlobDir
