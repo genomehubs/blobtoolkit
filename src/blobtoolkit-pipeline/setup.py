@@ -106,6 +106,7 @@ setup(
         "defusedxml==0.7.1",
         "requests==2.28.1",
         "snakemake==7.19.1",
+        "pulp==2.7.0",
     ],  # Optional
     extras_require={  # Optional
         "dev": ["pycodestyle>=2.6.0", "pydocstyle>=5.0.2", "pylint>=2.5.3"],
