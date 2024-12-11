@@ -5,6 +5,8 @@
 
 """Parse BLAST results into MultiArray Field."""
 
+
+import contextlib
 import math
 import re
 from collections import Counter
@@ -45,18 +47,23 @@ def parse_blast(blast_file, cols, results=None, index=0, evalue=1, bitscore=1):
         query = row[cols["qseqid"]]
         if ":" in query and "=" in query:
             # parse blastp
-            parts = re.sub(r"\|.", "", query).split("=")
+            parts = re.sub(r"\|[\+\-]", "", query).split("=")
             if query in bitscores and score <= bitscores[query]:
                 continue
             if len(parts) == 3 and parts[2] == "fragmented":
                 continue
             bitscores[query] = score
-            seq_id, start, end = re.split(r"[:-|]", parts[0])
+            if match_result := re.match(r"(^.+):(\d+)-(\d+)", query):
+                seq_id = match_result[1]
+                start = int(match_result[2])
+                end = int(match_result[3])
+            else:
+                continue
             hit = {
                 "subject": row[cols["sseqid"]],
                 "score": score,
-                "start": int(start),
-                "end": int(end),
+                "start": start,
+                "end": end,
                 "file": index,
                 "title": parts[1],
             }
@@ -81,15 +88,12 @@ def parse_blast(blast_file, cols, results=None, index=0, evalue=1, bitscore=1):
                 }
         try:
             taxid = row[cols["staxids"]]
-            try:
+            with contextlib.suppress(ValueError):
                 taxid, *rest = taxid.split(";")
-            except ValueError:
-                # no taxid for this row
-                pass
-            hit.update({"taxid": int(taxid)})
+            hit["taxid"] = int(taxid)
         except ValueError:
             # no taxid in file
-            hit.update({"taxid": 0})
+            hit["taxid"] = 0
         if bitscores:
             blastp[query] = hit
         else:
