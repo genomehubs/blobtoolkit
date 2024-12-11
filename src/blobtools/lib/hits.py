@@ -44,6 +44,7 @@ def parse_blast(blast_file, cols, results=None, index=0, evalue=1, bitscore=1):
         offset = int(offset[0]) if offset else 0
         query = row[cols["qseqid"]]
         if ":" in query and "=" in query:
+            query = "|".join(query.split("|")[-2:])
             # parse blastp
             parts = re.sub(r"\|.", "", query).split("=")
             if query in bitscores and score <= bitscores[query]:
@@ -51,7 +52,7 @@ def parse_blast(blast_file, cols, results=None, index=0, evalue=1, bitscore=1):
             if len(parts) == 3 and parts[2] == "fragmented":
                 continue
             bitscores[query] = score
-            seq_id, start, end = re.split(r"[:-|]", parts[0])
+            seq_id, start, end = re.split(r"[:|-]", parts[0])
             hit = {
                 "subject": row[cols["sseqid"]],
                 "score": score,
@@ -96,8 +97,10 @@ def parse_blast(blast_file, cols, results=None, index=0, evalue=1, bitscore=1):
             results[seq_id].append(hit)
     if bitscores:
         for query, hit in blastp.items():
-            seq_id, rest = query.split(":")
-            results[seq_id].append(hit)
+            if ":" in query:
+                query = "|".join(query.split("|")[-2:])
+                seq_id, rest = query.split(":")
+                results[seq_id].append(hit)
     return results
 
 
