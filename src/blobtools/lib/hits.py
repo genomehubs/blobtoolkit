@@ -45,13 +45,13 @@ def parse_blast(blast_file, cols, results=None, index=0, evalue=1, bitscore=1):
         query = row[cols["qseqid"]]
         if ":" in query and "=" in query:
             # parse blastp
-            parts = query.split("=")
+            parts = re.sub(r"\|.", "", query).split("=")
             if query in bitscores and score <= bitscores[query]:
                 continue
             if len(parts) == 3 and parts[2] == "fragmented":
                 continue
             bitscores[query] = score
-            seq_id, start, end = re.split(r"[:-]", parts[0])
+            seq_id, start, end = re.split(r"[:-|]", parts[0])
             hit = {
                 "subject": row[cols["sseqid"]],
                 "score": score,
@@ -646,7 +646,7 @@ def weighted_mean_sd(values, weights, log=False):
         sum([entry["weight"] * ((entry["value"] - mean) ** 2) for entry in weighted])
         / total_weight
     )
-    st_dev = variance ** 0.5
+    st_dev = variance**0.5
     upper = mean + 2 * st_dev
     lower = mean - 2 * st_dev
     if log:
