@@ -1,7 +1,10 @@
 #!/bin/bash
 
 ls /tmp/*.whl | while read WHEEL; do
-    $CONDA_DIR/envs/btk_env/bin/pip install --prefix $CONDA_DIR/envs/btk_env $WHEEL
+    $CONDA_DIR/envs/btk_env/bin/pip install \
+        --prefix $CONDA_DIR/envs/btk_env \
+        --force-reinstall \
+        $WHEEL
 done
 
 if [ -s /blobtoolkit/blobtoolkit-api-linux ]; then
