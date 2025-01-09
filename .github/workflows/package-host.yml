@@ -51,7 +51,7 @@ jobs:
           path: ./src/blobtoolkit-host/artifacts/*
 
   package-python-host-macos:
-    runs-on: macOS
+    runs-on: macos-latest
     if: ( inputs.platform == 'macos' && inputs.python-version > '3.8' )
     steps:
       - uses: actions/checkout@v3
