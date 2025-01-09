@@ -16,3 +16,4 @@ htmlcov
 .git
 bin
 logs
+validated
