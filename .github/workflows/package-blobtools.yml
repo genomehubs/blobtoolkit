@@ -41,7 +41,7 @@ jobs:
           path: ./artifacts/*
 
   package-python-blobtoolkit-macos:
-    runs-on: macos-11
+    runs-on: macOS
     if: ( inputs.platform == 'macos' && inputs.python-version > '3.8' )
     steps:
       - uses: actions/checkout@v3
