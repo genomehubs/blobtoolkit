@@ -12,7 +12,7 @@ jobs:
           node-version: "16"
       - run: npm install -g pkg
       - run: ./package-api.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         with:
           name: node
           path: ./dist/*
