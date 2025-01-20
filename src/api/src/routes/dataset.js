@@ -44,11 +44,12 @@ const getDatasetByIdKey = async (req, res) => {
 
 const getDatasetByIdKeySubkey = async (req, res) => {
   res.setHeader("content-type", "application/json");
-  let dataset = new Dataset(req.params.dataset_id);
+  let { dataset_id, key, subkey } = req.params;
+  let dataset = new Dataset(dataset_id);
   let meta = await dataset.loadMeta();
   let json;
-  if (meta.hasOwnProperty(req.params.key)) {
-    json = meta[req.params.key];
+  if (meta.hasOwnProperty(key)) {
+    json = meta[key];
   } else {
     try {
       let result = utils.nestedEntryByKeyValue(
@@ -66,9 +67,12 @@ const getDatasetByIdKeySubkey = async (req, res) => {
       res.sendStatus(404);
     }
   }
-  if (json.hasOwnProperty(req.params.subkey)) {
-    res.json(json[req.params.subkey]);
+  if (json && json.hasOwnProperty(subkey)) {
+    res.json(json[subkey]);
   } else {
+    if (!json) {
+      console.log("json is empty", { dataset_id, key, subkey });
+    }
     res.sendStatus(404);
   }
 };

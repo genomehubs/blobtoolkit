@@ -326,7 +326,7 @@ const autocomplete = (term) => {
 
 const search = (term) => {
   if (term.match(/^all$/i)) return meta.filter((o) => o.latest == o.revision);
-  if (!index.values[term]) return [];
+  if (!term || !index.values || !index.values[term]) return [];
   let arr = [];
   let ids = {};
   index.values[term].forEach((entry) => {
