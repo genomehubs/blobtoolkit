@@ -62,9 +62,11 @@ const getDatasetByIdKeySubkey = async (req, res) => {
         json = result;
       } else {
         res.sendStatus(404);
+        return;
       }
     } catch (err) {
       res.sendStatus(404);
+      return;
     }
   }
   if (json && json.hasOwnProperty(subkey)) {
