@@ -18,8 +18,8 @@ jobs:
       - name: Collect artifacts
         uses: actions/download-artifact@v4
         with:
-          name: node
           path: ./dist
+          pattern: node-*
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ inputs.python-version }}
@@ -59,8 +59,8 @@ jobs:
       - name: Collect artifacts
         uses: actions/download-artifact@v4
         with:
-          name: node
           path: ./dist
+          pattern: node-*
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ inputs.python-version }}
