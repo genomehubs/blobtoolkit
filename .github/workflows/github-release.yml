@@ -12,9 +12,9 @@ jobs:
           path: ./tmp
       - run: |
           mkdir -p ./dist
-          mv tmp/node/blobtoolkit-api-* ./dist/ || true
-          mv tmp/node/blobtoolkit-viewer-* ./dist/ || true
-          mv tmp/node/blobtoolkit-viewer.tgz* ./dist/ || true
+          mv tmp/node-api/blobtoolkit-api-* ./dist/ || true
+          mv tmp/node-ui/blobtoolkit-viewer-* ./dist/ || true
+          mv tmp/node-ui/blobtoolkit-viewer.tgz* ./dist/ || true
       - name: create release
         uses: "marvinpinto/action-automatic-releases@v1.2.1"
         with:
