@@ -47,8 +47,7 @@ jobs:
           mv dist/*.whl artifacts/
       - uses: actions/upload-artifact@v4
         with:
-          name: pip
-          overwrite: true
+          name: pip-host-linux-${{ inputs.python-version }}
           path: ./src/blobtoolkit-host/artifacts/*
 
   package-python-host-macos:
@@ -84,6 +83,5 @@ jobs:
           mv dist/*.whl artifacts/
       - uses: actions/upload-artifact@v4
         with:
-          name: pip
-          overwrite: true
+          name: pip-host-macos-${{ inputs.python-version }}
           path: ./src/blobtoolkit-host/artifacts/*

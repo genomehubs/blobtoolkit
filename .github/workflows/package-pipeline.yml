@@ -38,8 +38,7 @@ jobs:
           mv dist/*.whl artifacts/
       - uses: actions/upload-artifact@v4
         with:
-          name: pip
-          overwrite: true
+          name: pip-pipeline-linux-${{ inputs.python-version }}
           path: ./src/blobtoolkit-pipeline/artifacts/*
 
   package-python-pipeline-macos:
@@ -66,6 +65,5 @@ jobs:
           mv dist/*.whl artifacts/
       - uses: actions/upload-artifact@v4
         with:
-          name: pip
-          overwrite: true
+          name: pip-pipeline-macos-${{ inputs.python-version }}
           path: ./src/blobtoolkit-pipeline/artifacts/*
