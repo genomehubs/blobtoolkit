@@ -36,9 +36,10 @@ jobs:
             mv dist/blobtoolkit*.tar.gz artifacts/
           fi
           mv dist/*.whl artifacts/
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: pip
+          overwrite: true
           path: ./src/blobtoolkit-pipeline/artifacts/*
 
   package-python-pipeline-macos:
@@ -63,7 +64,8 @@ jobs:
           python3 setup.py sdist bdist_wheel --python-tag py${PY_VERSION} --plat-name macosx_11_0_x86_64
           python3 setup.py sdist bdist_wheel --python-tag py${PY_VERSION} --plat-name macosx_11_0_arm64
           mv dist/*.whl artifacts/
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: pip
+          overwrite: true
           path: ./src/blobtoolkit-pipeline/artifacts/*

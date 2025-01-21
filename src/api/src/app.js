@@ -12,12 +12,14 @@ if (config.https) {
   var secureServer = https
     .createServer(options, app)
     .listen(config.api_port, async function () {
-      console.log("blobtoolkit-api started on https port: " + config.api_port);
+      console.log(
+        "blobtoolkit-api listening on https port: " + config.api_port
+      );
       await search.loadIndex();
     });
 } else {
   app.listen(config.api_port, async function () {
-    console.log("blobtoolkit-api started on http port: " + config.api_port);
+    console.log("blobtoolkit-api listening on http port: " + config.api_port);
     await search.loadIndex();
   });
 }
