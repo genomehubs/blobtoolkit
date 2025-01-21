@@ -3,7 +3,7 @@
 # pylint: disable=no-member, too-many-branches, too-many-statements, too-many-locals, W0603, W0703
 
 """
-Host a collection of BlobDirs.
+Deprecated. Host a collection of BlobDirs.
 
 Usage:
     blobtoolkit-host [--port INT]  [--api-port INT]
@@ -19,6 +19,15 @@ Options:
     --hostname STRING     Hostname used to connect to API. [Default: localhost]
     -h, --help            Show this
     -v, --version         Show version number
+
+The blobtoolkit-host command has been deprecated and will be removed in a future release.
+
+Including the BlobToolKit API and Viewer in a pip package has caused issues with the 
+size of the package and hosting limits on PyPi.
+
+Please use the alternative installation instructions in the BlobToolKit wiki at
+https://github.com/genomehubs/blobtoolkit/wiki/Installation to set up the 
+BlobToolKit API and Viewer standalone executables directly or as docker containers.
 
 """
 
@@ -42,6 +51,20 @@ from docopt import docopt
 from .version import __version__
 
 PIDS = []
+
+DEPRECATION_NOTICE = """
+Deprecated.
+
+The blobtoolkit-host command has been deprecated and will be removed in a future release.
+
+Including the BlobToolKit API and Viewer in a pip package has caused issues with the 
+size of the package and hosting limits on PyPi.
+
+Please use the alternative installation instructions in the BlobToolKit wiki at
+https://github.com/genomehubs/blobtoolkit/wiki/Installation to set up the 
+BlobToolKit API and Viewer standalone executables directly or as docker containers.
+
+"""
 
 
 def iter_user_procs(process):
@@ -205,6 +228,7 @@ def start_viewer(port, api_port, hostname):
 
 def main(args):
     """Entrypoint for blobtools host."""
+    print(DEPRECATION_NOTICE, file=sys.stderr)
     global PIDS
     directory = args["DIRECTORY"]
     if directory != "_":
