@@ -255,7 +255,7 @@ const generateTree = (meta) => {
 
 let meta = [];
 let index = {};
-let keys = {};
+let keys = [];
 let tree = {};
 let status = "LOADING";
 
@@ -290,7 +290,7 @@ const loadIndex = async () => {
     let newKeys = Object.keys(newIndex.values);
     meta = newMeta;
     index = newIndex;
-    keys = newKeys;
+    keys = newKeys || [];
     status = "INDEXING";
     loadFullIndex();
   } catch (message) {
@@ -300,43 +300,55 @@ const loadIndex = async () => {
 };
 
 const autocomplete = (term) => {
-  query = term.toUpperCase();
   let results = [];
-  if (term.match(/^all$/i)) {
-    results.push({
-      term: "all",
-      field: "all records",
-      names: meta.filter((o) => o.latest == o.revision).map((o) => o.name),
-    });
-  } else {
-    keys.forEach((k) => {
-      if (k.substr(0, query.length).toUpperCase() == query) {
-        index.values[k].forEach((entry) => {
-          results.push({
-            term: k,
-            field: index.keys[entry.f],
-            names: entry.i.map((i) => meta[i].name),
+  try {
+    query = term.toUpperCase();
+    if (term.match(/^all$/i)) {
+      results.push({
+        term: "all",
+        field: "all records",
+        names: meta.filter((o) => o.latest == o.revision).map((o) => o.name),
+      });
+    } else {
+      keys.forEach((k) => {
+        if (k.substr(0, query.length).toUpperCase() == query) {
+          index.values[k].forEach((entry) => {
+            results.push({
+              term: k,
+              field: index.keys[entry.f],
+              names: entry.i.map((i) => meta[i].name),
+            });
           });
-        });
-      }
-    });
+        }
+      });
+    }
+  } catch (error) {
+    console.log(error);
   }
   return results;
 };
 
 const search = (term) => {
-  if (term.match(/^all$/i)) return meta.filter((o) => o.latest == o.revision);
-  if (!term || !index.values || !index.values[term]) return [];
   let arr = [];
-  let ids = {};
-  index.values[term].forEach((entry) => {
-    entry.i.forEach((i) => {
-      if (!ids[meta[i].id]) {
-        arr.push(meta[i]);
-        ids[meta[i].id] = 1;
-      }
+  try {
+    if (term.match(/^all$/i)) {
+      return meta.filter((o) => o.latest == o.revision);
+    }
+    if (!term || !index.values || !index.values[term]) {
+      return [];
+    }
+    let ids = {};
+    index.values[term].forEach((entry) => {
+      entry.i.forEach((i) => {
+        if (!ids[meta[i].id]) {
+          arr.push(meta[i]);
+          ids[meta[i].id] = 1;
+        }
+      });
     });
-  });
+  } catch (error) {
+    console.log(error);
+  }
   return arr;
 };
 
