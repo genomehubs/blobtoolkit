@@ -10,6 +10,12 @@ BlobToolKit is described in our [BlobToolKit paper](https://doi.org/10.1534/g3.1
 > G3: GENES, GENOMES, GENETICS April 1, 2020 vol. 10 no. 4 1361-1374;
 > https://doi.org/10.1534/g3.119.400908
 
+
+## NextFlow pipeline
+
+The recommended way to run a full set of analyses for BlobToolKit is via the [sanger-tol/blobtoolkit](https://pipelines.tol.sanger.ac.uk/blobtoolkit) NextFlow pipeline. This is the actively supported version of the pipeline as used in production by the [Tree of Life Programme](https://www.sanger.ac.uk/programme/tree-of-life/) at the [Wellcome Sanger Institute](https://www.sanger.ac.uk).
+
+
 ## About
 
 Similar to [BlobTools v1](https://github.com/DRL/blobtools), **BlobTools2** is a command line tool designed to aid genome assembly QC and contaminant/cobiont detection and filtering. In addition to supporting interactive visualisation, a motivation for this reimplementation was to provide greater flexibility to include new types of information, such as [BUSCO](https://busco.ezlab.org) results and [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi) hit distributions.
