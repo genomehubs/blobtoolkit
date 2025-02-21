@@ -48,6 +48,8 @@ def parse_busco_file(fh, ofh, status, busco_id):
         if line.startswith(">"):
             header = line.strip()
             title = ""
+            # remove trailing "|-" or "|+" from header if present
+            header = re.sub(r"\|[\-+]+$", "", header)
             if header.startswith(f">{busco_id}"):
                 seq_id = header.split("|")[-1]
                 title = f">{seq_id}={busco_id}={status}"
@@ -110,7 +112,7 @@ def parse_tarred_busco_directory(file_pattern, ofh, utf8reader, busco_seqs):
 
 def parse_busco_directory(file_pattern, ofh, busco_file):
     """Parse a plain busco_directory."""
-    files = glob.glob(f"{busco_file}/*/*.faa")
+    files = glob.glob(f"{Path(busco_file).resolve()}/*/*.faa")
     for file in files:
         match = file_pattern.search(file)
         status, busco_id = match.groups()
