@@ -104,7 +104,7 @@ setup(
         "tqdm==4.64.1",
         "ujson>=5.7.0",
         "defusedxml==0.7.1",
-        "requests==2.28.1",
+        "requests>=2.28.1",
         "snakemake==7.19.1",
         "pulp==2.7.0",
     ],  # Optional

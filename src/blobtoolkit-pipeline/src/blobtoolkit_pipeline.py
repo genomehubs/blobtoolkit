@@ -50,5 +50,8 @@ def cli(rename=None):
             if entry_point.name == args["<command>"]:
                 subcommand = entry_point.load()
                 sys.exit(subcommand(rename))
+    elif "--help" in args and args["--help"]:
+        print(__doc__)
+        exit(0)
     print(docs)
     raise DocoptExit
