@@ -176,7 +176,7 @@ jobs:
       - release-blobtools
     if: |
       always() &&
-      !contains(needs.*.result, 'failure') &&
+      !contains(needs.package-*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
       (
         needs.changes.outputs.is-api-release == 'true' ||
