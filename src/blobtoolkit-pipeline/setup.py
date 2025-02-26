@@ -24,7 +24,7 @@ def read(*names, **kwargs):
 
 setup(
     name="blobtoolkit-pipeline",  # Required
-    version="4.4.1",
+    version="4.4.2",
     description="blobtoolkit-pipeline",  # Optional
     long_description="blobtoolkit-pipeline",  # Optional
     long_description_content_type="text/markdown",
@@ -104,7 +104,7 @@ setup(
         "tqdm==4.64.1",
         "ujson>=5.7.0",
         "defusedxml==0.7.1",
-        "requests==2.28.1",
+        "requests>=2.28.1",
         "snakemake==7.19.1",
         "pulp==2.7.0",
     ],  # Optional

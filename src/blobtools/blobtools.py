@@ -62,7 +62,7 @@ def suggest_option(command):
     options_list = options.get(command, [])
     options_list.append("full")
     LOGGER.error(
-        f"The `blobtools {command}` command is not available, to enable this option use{' one of' if len(options_list)>1 else ''}:"
+        f"The `blobtools {command}` command is not available, to enable this option use{' one of' if len(options_list) > 1 else ''}:"
     )
     for option in options_list:
         print(
@@ -110,4 +110,10 @@ def cli():
             "'%s %s' is not a valid command", args["<tool>"], args["<command>"]
         )
         sys.exit(1)
+    elif "--help" in args and args["--help"]:
+        print(__doc__)
+        exit(0)
+    elif "--version" in args and args["--version"]:
+        print(__version__)
+        exit(0)
     raise DocoptExit

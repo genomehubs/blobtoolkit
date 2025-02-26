@@ -1,4 +1,4 @@
-# BlobToolKit (v4.4.1)
+# BlobToolKit (v4.4.3)
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![DOI](https://zenodo.org/badge/150091036.svg)](https://zenodo.org/badge/latestdoi/150091036)
@@ -9,6 +9,12 @@ BlobToolKit is described in our [BlobToolKit paper](https://doi.org/10.1534/g3.1
 > Richard Challis, Edward Richards, Jeena Rajan, Guy Cochrane, Mark Blaxter
 > G3: GENES, GENOMES, GENETICS April 1, 2020 vol. 10 no. 4 1361-1374;
 > https://doi.org/10.1534/g3.119.400908
+
+
+## NextFlow pipeline
+
+The recommended way to run a full set of analyses for BlobToolKit is via the [sanger-tol/blobtoolkit](https://pipelines.tol.sanger.ac.uk/blobtoolkit) NextFlow pipeline. This is the actively supported version of the pipeline as used in production by the [Tree of Life Programme](https://www.sanger.ac.uk/programme/tree-of-life/) at the [Wellcome Sanger Institute](https://www.sanger.ac.uk).
+
 
 ## About
 

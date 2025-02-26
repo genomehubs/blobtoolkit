@@ -21,6 +21,9 @@ WORKDIR /blobtoolkit
 
 USER blobtoolkit
 
+COPY build_tests.py /blobtoolkit
+RUN python3 build_tests.py && rm build_tests.py
+
 COPY startup.sh /blobtoolkit
 
 EXPOSE 8000 8001 8080
