@@ -95,7 +95,6 @@ jobs:
       - package-pipeline
     if: |
       always() &&
-      !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
       needs.changes.outputs.is-pipeline-release == 'true'
     secrets: inherit
@@ -124,7 +123,6 @@ jobs:
       - release-pipeline
     if: |
       always() &&
-      !contains(needs.*.result, 'failure') &&
       !contains(needs.*.result, 'cancelled') &&
       needs.changes.outputs.is-blobtools-release == 'true'
     uses: ./.github/workflows/upload-to-pypi.yml
