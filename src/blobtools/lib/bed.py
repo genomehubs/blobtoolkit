@@ -530,13 +530,17 @@ def parse(files, **kwargs):
                                     if meta["datatype"] == "integer":
                                         value = int(value)
                                     if field in windows_sd:
-                                        value = [
-                                            value,
-                                            windows_sd[field][seq_id][idx],
-                                            windows_n[field][seq_id][idx],
-                                        ]
+                                        value = (
+                                            [
+                                                value,
+                                                windows_sd[field][seq_id][idx],
+                                                windows_n[field][seq_id][idx],
+                                            ]
+                                            if value is not None
+                                            else []
+                                        )
                                     else:
-                                        value = [value]
+                                        value = [value] if value is not None else []
                                     seq_values.append(value)
                             window_values.append(seq_values)
                         windows_field = "%s_windows" % field

@@ -44,13 +44,16 @@ logger = logging.getLogger()
 def parse_busco_file(fh, ofh, status, busco_id):
     """Parse a busco sequences file."""
     header_pattern = re.compile(r">\S+:\d+-\d+")
+    busco_id_pattern = re.compile(r"\d+at\d+")
     for line in fh:
         if line.startswith(">"):
             header = line.strip()
             title = ""
             # remove trailing "|-" or "|+" from header if present
             header = re.sub(r"\|[\-+]+$", "", header)
-            if header.startswith(f">{busco_id}"):
+            # header busco_id may not match the busco_id in the filename
+            # so cannot use if header.startswith(f">{busco_id}"):
+            if busco_id_pattern.match(header[1:]):
                 seq_id = header.split("|")[-1]
                 title = f">{seq_id}={busco_id}={status}"
             elif header_pattern.match(header):

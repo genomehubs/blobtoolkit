@@ -1,4 +1,4 @@
-# BTK Pipeline v4.4.2
+# BTK Pipeline v4.4.3
 
 Splits original pipeline into sub-pipelines that can be run independently or using the `blobtoolkit.smk` meta pipeline.
 
