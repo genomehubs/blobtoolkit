@@ -4,6 +4,7 @@ const utils = require("../shared/functions/utils");
 const getFieldById = async (req, res) => {
   res.setHeader("content-type", "application/json");
   //res.setHeader('Access-Control-Allow-Origin', 'http://localhost:8080');
+  let hasWindows = false;
   let windowSize = req.query.window_size;
   let data;
   if (windowSize) {
@@ -13,7 +14,7 @@ const getFieldById = async (req, res) => {
       }`,
       {
         id: req.params.dataset_id,
-      }
+      },
     );
     data = await field.loadData();
   }
@@ -26,7 +27,9 @@ const getFieldById = async (req, res) => {
   if (data && data.hasOwnProperty("values")) {
     res.json(data);
   } else {
-    res.sendStatus(404);
+    res.status(404).json({
+      error: `field ${req.params.field_id} not found in dataset ${req.params.dataset_id}`,
+    });
   }
 };
 
@@ -37,7 +40,9 @@ const getFieldByIdIndex = async (req, res) => {
   if (data) {
     res.json(data);
   } else {
-    res.sendStatus(404);
+    res.status(404).json({
+      error: `field ${req.params.field_id} index ${req.params.index} not found in dataset ${req.params.dataset_id}`,
+    });
   }
 };
 

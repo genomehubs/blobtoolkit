@@ -9,6 +9,9 @@ import immutableUpdate from "immutable-update";
 import shallow from "shallowequal";
 import store from "../store";
 
+// In-flight requests keyed by dataset id, so concurrent callers share one fetch.
+const inFlight = {};
+
 const requestIdentifiers = createAction("REQUEST_IDENTIFIERS");
 const receiveIdentifiers = createAction(
   "RECEIVE_IDENTIFIERS",
@@ -52,18 +55,33 @@ export function fetchIdentifiers() {
       return new Promise((resolve) => resolve(existing));
     }
     let id = getDatasetID(state);
+    if (inFlight[id]) {
+      return inFlight[id];
+    }
     dispatch(requestIdentifiers(id));
-    return fetch(apiUrl + "/identifiers/" + id)
-      .then(
-        (response) => response.json(),
-        (error) => console.log("An error occured.", error),
-      )
-      .then((json) => {
-        if (!Array.isArray(json)) {
-          json = json.values;
+    const request = fetch(apiUrl + "/identifiers/" + id)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
         }
-        return dispatch(receiveIdentifiers(json));
+        return response.json();
+      })
+      .then((json) => {
+        const list = Array.isArray(json) ? json : json.values;
+        if (!Array.isArray(list)) {
+          throw new Error("unexpected identifiers response");
+        }
+        return dispatch(receiveIdentifiers(list));
+      })
+      .catch((error) => {
+        console.log("An error occured.", error);
+        return dispatch(receiveIdentifiers([]));
+      })
+      .finally(() => {
+        delete inFlight[id];
       });
+    inFlight[id] = request;
+    return request;
   };
 }
 

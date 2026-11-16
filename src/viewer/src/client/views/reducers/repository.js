@@ -233,10 +233,21 @@ export function fetchRepository(searchTerm) {
   };
 }
 
-function clearUnderscores(obj) {
-  let str = JSON.stringify(obj);
-  str = str.replace(/"_/g, '"');
-  return JSON.parse(str);
+// Strips the leading underscore the API adds to object keys (e.g. _id, _data).
+// Values are left untouched.
+function clearUnderscores(value) {
+  if (Array.isArray(value)) {
+    return value.map(clearUnderscores);
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, val]) => [
+        key.replace(/^_/, ""),
+        clearUnderscores(val),
+      ]),
+    );
+  }
+  return value;
 }
 
 export function fetchMeta(id) {

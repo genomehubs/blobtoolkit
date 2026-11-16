@@ -56,6 +56,33 @@ describe("search cache", () => {
     expect(cache.record.genus).toBe("Foo");
   });
 
+  it("flags blob_plot only when all plot axes are in meta, and keeps it out of the index", async () => {
+    for (const [id, plot] of [
+      ["AAAA01", { x: "gc", y: "cov", z: "length", cat: "phylum" }],
+      ["AAAA02", { x: "gc", z: "length", cat: "phylum" }],
+    ]) {
+      const dir = path.join(root, id);
+      fs.mkdirSync(dir, { recursive: true });
+      // Plot fields must have data files or the dataset is skipped as incomplete.
+      Object.values(plot).forEach((field) =>
+        fs.writeFileSync(path.join(dir, `${field}.json`), "[]"),
+      );
+      fs.writeFileSync(
+        path.join(dir, "meta.json"),
+        JSON.stringify({
+          assembly: { accession: `GCA_${id}.1`, prefix: id },
+          taxon: { genus: "Foo" },
+          plot,
+        }),
+      );
+    }
+    const md = await search.readMeta(root, [], "force");
+    const byId = Object.fromEntries(md.map((m) => [m.id, m]));
+    expect(byId.AAAA01.blob_plot).toBe(true);
+    expect(byId.AAAA02.blob_plot).toBe(false);
+    expect(search.generateIndex(md).keys).not.toContain("blob_plot");
+  });
+
   it("fast mode reuses a valid cache even if meta.json changed", async () => {
     writeMeta(root, "AAAA01", "Foo");
     await search.readMeta(root, [], "fast");

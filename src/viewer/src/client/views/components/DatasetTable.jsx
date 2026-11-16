@@ -103,10 +103,8 @@ class DatasetTableComponent extends Component {
           getTrProps={(state, rowInfo, column) => {
             return {
               onClick: (e, handleOriginal) => {
-                let view = "blob";
-                if (!rowInfo.row["reads"] || rowInfo.row["reads"] == 0) {
-                  view = "cumulative";
-                }
+                // Blob view needs all plot axes in meta; otherwise use the alternate plot.
+                let view = rowInfo.row["blob_plot"] ? "blob" : "cumulative";
                 this.props.onDatasetClick(rowInfo.row.id, view);
               },
               style: {

@@ -9,11 +9,15 @@ const fileExists = require("../functions/io").fileExists;
 const goat = require("../functions/goat");
 const tableColumns = require("../functions/table-columns");
 
-const SEARCH_SCHEMA_VERSION = 2;
+const SEARCH_SCHEMA_VERSION = 3;
 const UPDATE_MODES = ["fast", "mtime", "force", "live"];
 const TARGETS_CHECK_MS = 60 * 60 * 1000;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 500;
+
+const BLOB_AXES = ["x", "y", "z", "cat"];
+// Boolean flags stored on records but not added to the search term index.
+const UNINDEXED_FIELDS = ["blob_plot"];
 
 const parseMeta = (obj) => {
   let meta = {};
@@ -44,6 +48,9 @@ const parseMeta = (obj) => {
   if (obj.hasOwnProperty("revision")) {
     meta.revision = obj.revision;
   }
+  // True when meta.plot defines every axis needed for the blob view.
+  const plot = obj.plot || {};
+  meta.blob_plot = BLOB_AXES.every((axis) => Boolean(plot[axis]));
   return meta;
 };
 
@@ -296,6 +303,7 @@ const generateIndex = (meta) => {
   meta.forEach((m, i) => {
     if (isCurrent(m)) {
       Object.keys(m).forEach((k) => {
+        if (UNINDEXED_FIELDS.includes(k)) return;
         if (!fields.hasOwnProperty(k)) {
           fields[k] = ctr;
           ctr++;
