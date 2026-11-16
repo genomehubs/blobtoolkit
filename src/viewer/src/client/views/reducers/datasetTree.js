@@ -24,7 +24,7 @@ const requestDatasetTree = createAction("REQUEST_DATASET_TREE");
 const receiveDatasetTree = createAction(
   "RECEIVE_DATASET_TREE",
   (json) => json,
-  {}
+  {},
 );
 
 export const datasetTree = handleActions(
@@ -39,7 +39,7 @@ export const datasetTree = handleActions(
       tree: action.payload,
     }),
   },
-  { isInitialised: false }
+  { isInitialised: false },
 );
 
 export const getDatasetTree = (state) => state.datasetTree;
@@ -50,7 +50,7 @@ export function fetchDatasetTree() {
     return fetch(apiUrl + "/search/tree/available")
       .then(
         (response) => response.json(),
-        (error) => console.log("An error occured.", error)
+        (error) => console.log("An error occured.", error),
       )
       .then((json) => {
         dispatch(receiveDatasetTree(json));
@@ -65,22 +65,75 @@ const requestTargetTree = createAction("REQUEST_TARGET_TREE");
 const receiveTargetTree = createAction(
   "RECEIVE_TARGET_TREE",
   (json) => json,
-  {}
+  {},
 );
+const receiveTargetNodes = createAction(
+  "RECEIVE_TARGET_NODES",
+  (json) => json,
+  {},
+);
+
+export const findNode = (node, id) => {
+  if (!node) return undefined;
+  if (node.n === id) return node;
+  if (!node.d) return undefined;
+  for (const key of Object.keys(node.d)) {
+    const found = findNode(node.d[key], id);
+    if (found) return found;
+  }
+  return undefined;
+};
+
+// Copies a node with the summaries from response, keeping children that are already loaded.
+const mergeNode = (node, response) => {
+  if (!response.d) return { ...node, ...response };
+  let d = {};
+  Object.keys(response.d).forEach((key) => {
+    let loaded = node.d && node.d[key];
+    let summary = response.d[key];
+    d[key] =
+      loaded && loaded.n === summary.n ? { ...loaded, ...summary } : summary;
+  });
+  return { ...node, ...response, d };
+};
+
+// Returns the tree with the node matching response replaced. Unchanged branches are shared.
+const applyNode = (node, response) => {
+  if (node.n === response.n) return mergeNode(node, response);
+  if (!node.d) return node;
+  let changed = false;
+  let d = {};
+  Object.keys(node.d).forEach((key) => {
+    let child = applyNode(node.d[key], response);
+    changed = changed || child !== node.d[key];
+    d[key] = child;
+  });
+  return changed ? { ...node, d } : node;
+};
 
 export const targetTree = handleActions(
   {
     REQUEST_TARGET_TREE: (state, action) => ({
+      ...state,
       isFetching: true,
       isInitialised: false,
     }),
     RECEIVE_TARGET_TREE: (state, action) => ({
       isFetching: false,
       isInitialised: true,
-      tree: action.payload,
+      tree: state.tree ? mergeNode(state.tree, action.payload) : action.payload,
+    }),
+    RECEIVE_TARGET_NODES: (state, action) => ({
+      ...state,
+      tree: state.tree
+        ? action.payload.reduce(
+            (tree, node) => applyNode(tree, node),
+            state.tree,
+          )
+        : state.tree,
     }),
   },
-  { isInitialised: false }
+  { isInitialised: false },
 );
 
 export const getTargetTree = (state) => state.targetTree;
@@ -90,7 +143,7 @@ export const setExpandedNodes = createAction("SET_EXPANDED_NODES");
 export const expandedNodes = handleAction(
   "SET_EXPANDED_NODES",
   (state, action) => action.payload,
-  { 1: 0 }
+  { 1: 0 },
 );
 
 export const getExpandedNodes = (state) => state.expandedNodes;
@@ -100,7 +153,7 @@ export const setTargetNodes = createAction("SET_TARGET_NODES");
 export const targetNodes = handleAction(
   "SET_TARGET_NODES",
   (state, action) => action.payload,
-  {}
+  {},
 );
 
 export const getTargetNodes = (state) => state.targetNodes;
@@ -110,17 +163,58 @@ export const setDatasetCounter = createAction("SET_DATASET_COUNTER");
 export const datasetCounter = handleAction(
   "SET_DATASET_COUNTER",
   (state, action) => action.payload,
-  "assemblies"
+  "assemblies",
 );
 
 export const getDatasetCounter = (state) => state.datasetCounter;
 
-export function expandNode(id, parent) {
+// Fetches the targets tree nodes with the given ids, keeping any that fail to load.
+function fetchTargetNodes(ids) {
+  return function (dispatch) {
+    return Promise.all(
+      ids.map((id) =>
+        fetch(`${apiUrl}/search/tree/target?node=${id}`)
+          .then((response) => (response.ok ? response.json() : null))
+          .catch((error) => {
+            console.log("An error occured.", error);
+            return null;
+          }),
+      ),
+    ).then((nodes) => {
+      let loaded = nodes.filter((node) => node);
+      if (loaded.length) dispatch(receiveTargetNodes(loaded));
+    });
+  };
+}
+
+// Loads children of the taxa with the given ids that are not loaded yet.
+function loadTargetNodes(ids) {
+  return function (dispatch) {
+    let tree = getTargetTree(store.getState()).tree;
+    let missing = ids.filter((id) => {
+      let node = findNode(tree, id);
+      return node && node.r && !node.d;
+    });
+    if (!missing.length) return Promise.resolve();
+    return dispatch(fetchTargetNodes(missing));
+  };
+}
+
+const addExpandedNode = (id, parent) => {
   return (dispatch) => {
     let state = store.getState();
     let nodes = Object.assign({}, getExpandedNodes(state));
-    nodes[id * 1] = parent;
+    nodes[id] = parent;
     dispatch(setExpandedNodes(nodes));
+  };
+};
+
+export function expandNode(id, parent) {
+  return (dispatch) => {
+    let nodeId = Number(id);
+    dispatch(loadTargetNodes([nodeId])).then(() =>
+      dispatch(addExpandedNode(nodeId, parent)),
+    );
   };
 }
 
@@ -141,33 +235,30 @@ export function collapseNode(id) {
   };
 }
 
-export function expandSearchTerm(target) {
+// Opens the path to the search term and highlights its matches, using the server's term lookup.
+export function expandSearchTerm() {
   return (dispatch) => {
-    let state = store.getState();
-    let nodes = Object.assign({}, getExpandedNodes(state));
-    let term = getSearchTerm(state);
-    if (!term) return;
+    let term = getSearchTerm(store.getState());
+    if (!term) return dispatch(loadTargetNodes([1]));
     if (term == "all") term = "Eukaryota";
-    target = target || getTargetTree(state).tree || {};
-    let termNodes = {};
-    let termIds = {};
-    const findTerm = (tree, term, path) => {
-      if (tree.d) {
-        Object.keys(tree.d).forEach((key) => {
-          if (key == term) {
-            Object.assign(termNodes, path);
-            termIds[tree.d[key].n] = true;
-          }
-          let newPath = Object.assign({}, path);
-          newPath[tree.d[key].n] = tree.n;
-          findTerm(tree.d[key], term, newPath);
+    return fetch(
+      `${apiUrl}/search/tree/target?term=${encodeURIComponent(term)}`,
+    )
+      .then(
+        (response) => (response.ok ? response.json() : null),
+        (error) => console.log("An error occured.", error),
+      )
+      .then((json) => {
+        if (!json) return;
+        dispatch(receiveTargetNodes(json.nodes));
+        let expNodes = Object.keys(json.expand).length ? json.expand : { 1: 0 };
+        dispatch(setExpandedNodes(expNodes));
+        let termIds = {};
+        json.targets.forEach((id) => {
+          termIds[id] = true;
         });
-      }
-    };
-    findTerm(target, term, {});
-    let expNodes = Object.keys(termNodes).length ? termNodes : { 1: 0 };
-    dispatch(setExpandedNodes(expNodes));
-    dispatch(setTargetNodes(termIds));
+        dispatch(setTargetNodes(termIds));
+      });
   };
 }
 
@@ -224,7 +315,7 @@ export const treeData = createSelector(
                 obj.d[key],
                 avail.d[key],
                 key,
-                depth + 1
+                depth + 1,
               );
             }
             count = avail.d[key]
@@ -273,12 +364,12 @@ export const treeData = createSelector(
           a.name == b.name
             ? 0
             : a.name.endsWith("-undef")
-            ? 1
-            : b.name.endsWith("-undef")
-            ? -1
-            : a.name > b.name
-            ? 1
-            : -1
+              ? 1
+              : b.name.endsWith("-undef")
+                ? -1
+                : a.name > b.name
+                  ? 1
+                  : -1,
         );
       }
     };
@@ -286,7 +377,7 @@ export const treeData = createSelector(
 
     let targetNested;
     return { nested, ranks, widths };
-  }
+  },
 );
 
 export function fetchTargetTree() {
@@ -295,11 +386,11 @@ export function fetchTargetTree() {
     return fetch(apiUrl + "/search/tree/target")
       .then(
         (response) => response.json(),
-        (error) => console.log("An error occured.", error)
+        (error) => console.log("An error occured.", error),
       )
       .then((json) => {
         dispatch(receiveTargetTree(json));
-        dispatch(expandSearchTerm(json));
+        dispatch(expandSearchTerm());
       });
   };
 }

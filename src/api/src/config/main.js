@@ -35,8 +35,21 @@ module.exports = {
   basename: process.env.BTK_BASENAME || "",
   // search index reload key
   reloadKey: process.env.BTK_RELOAD_KEY || "",
-  // search.json update mode: fast, mtime or force
+  // search.json update mode: fast, mtime, force or live
   searchUpdateMode: process.env.BTK_SEARCH_UPDATE_MODE || "fast",
+  // hide older datasets sharing a GCA accession with a GCA-prefixed dataset (set false to disable)
+  supersedeByAccession:
+    String(process.env.BTK_SUPERSEDE_BY_ACCESSION) !== "false",
+  // GoaT API used for live taxonomy lookups and targets.json generation
+  goatApi: process.env.BTK_GOAT_API || "https://goat.genomehubs.org/api/v2",
+  // GoaT v3 search API used to list assemblies for targets.json (cursor paging)
+  goatSearchApi:
+    process.env.BTK_GOAT_SEARCH_API || "https://goat.genomehubs.org/api/v3",
+  // hours between targets.json refreshes; 0 disables
+  targetsUpdateHours:
+    process.env.BTK_TARGETS_UPDATE_HOURS === undefined
+      ? 168
+      : Number(process.env.BTK_TARGETS_UPDATE_HOURS),
   // path to read flatfiles
   filePath: FILE_PATH,
   // Path to write flatfiles

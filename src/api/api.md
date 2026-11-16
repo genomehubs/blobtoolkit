@@ -54,6 +54,10 @@ curl "https://example.com/api/v1/search/Caenorhabditis"
 
 With `display=tsv` the response is a tab-separated list of GCA accessions, one per prefix.
 
+### Versioning
+
+The newest revision of each `prefix` is returned. By default, datasets whose `prefix` is not a GCA accession are also hidden when another dataset has a GCA-prefixed `prefix` (for example `GCA_000001215_4`) with the same GCA accession. Hidden datasets are excluded from `/search/all`, `/search/:term`, autocomplete, the index and TSV output. Set `BTK_SUPERSEDE_BY_ACCESSION=false` to disable this.
+
 ### Paging
 
 Paging is optional. Pass `page` (starting at 1) or `size` (default 20, maximum 500) to enable it. Without either parameter, the full unpaged array is returned as above.
@@ -76,6 +80,14 @@ curl "https://example.com/api/v1/search/Caenorhabditis?page=2&size=50"
 
 `total` is the number of matches before paging. A page beyond the end returns an empty `results` array.
 
+### Sorting
+
+Pass `sort` (a top-level dataset field such as `name`, `taxid` or `records`) and optionally `order` (`asc` default, or `desc`) to sort the JSON response. Without `sort`, results are ordered by `id`. Records without a value for the field sort last in either direction, and ties fall back to `id`, so paging stays stable. Fields holding objects, such as `assembly`, cannot be sorted.
+
+```
+curl "https://example.com/api/v1/search/Caenorhabditis?sort=records&order=desc&page=1&size=20"
+```
+
 With `display=tsv`, paging returns the requested slice of lines and sets the `x-total-count` header to the total number of lines.
 
 ```
@@ -89,10 +101,24 @@ Reloads the search index. Requires the reload key. The optional `mode` parameter
 - `fast` (default, or `BTK_SEARCH_UPDATE_MODE`): reuse `search.json` when its schema is current.
 - `mtime`: also regenerate a dataset when its `meta.json` is newer than `search.json`.
 - `force`: regenerate every `search.json`.
+- `live`: regenerate every `search.json` and refresh the taxonomy fields (`superkingdom` to `species`, `taxon_name`) from GoaT. Each distinct `taxid` is looked up once per reload. Set `BTK_GOAT_API` to change the GoaT endpoint (default `https://goat.genomehubs.org/api/v2`). Lookups that fail keep the stored values, and lookups stop after 10 failures in one run.
 
 ```
 curl "https://example.com/api/v1/search/reload/:key?mode=mtime"
+curl "https://example.com/api/v1/search/reload/:key?mode=live"
 ```
+
+### Targets
+
+`targets.json` lists the target assemblies for the tree endpoint. It is rebuilt from GoaT (all Eukaryota assemblies, listed with the GoaT v3 search API and `search_after` cursor paging; set `BTK_GOAT_SEARCH_API` to change the endpoint) every `BTK_TARGETS_UPDATE_HOURS` hours (default 168; set 0 to disable), checked hourly. A failed refresh keeps the existing file. The tree numerator counts only current datasets whose accession or id is listed in `targets.json`.
+
+`GET /search/tree/target` returns the targets tree one taxon at a time, so the whole file is not sent:
+
+- No parameters: the root node (`n: 0`), with summaries of its direct children.
+- `node=<id>`: the taxon with that id, with summaries of its direct children. Assembly leaves and unknown ids return 404.
+- `term=<name>`: the ancestors of every taxon or assembly with that name. Returns `nodes` (ancestor taxa, top-down, each with its children summaries), `expand` (ancestor id to parent id) and `targets` (ids of the matches).
+
+A node is `{n, r, ta, ts, d}`, where `d` maps child names to child summaries `{n, r, ta, ts}`. Child summaries without `r` are assembly leaves. `d` is present only once a node's children have been returned.
 
 If `search.json` is missing or out of date it is created from `meta.json` on startup or reload. Writes are atomic, and a read-only dataset directory still serves results from `meta.json`.
 

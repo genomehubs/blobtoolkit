@@ -13,14 +13,16 @@ if (config.https) {
     .createServer(options, app)
     .listen(config.api_port, async function () {
       console.log(
-        "blobtoolkit-api listening on https port: " + config.api_port
+        "blobtoolkit-api listening on https port: " + config.api_port,
       );
       await search.loadIndex();
+      search.scheduleTargetUpdates();
     });
 } else {
   app.listen(config.api_port, async function () {
     console.log("blobtoolkit-api listening on http port: " + config.api_port);
     await search.loadIndex();
+    search.scheduleTargetUpdates();
   });
 }
 module.exports = app;

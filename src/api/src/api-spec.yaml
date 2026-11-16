@@ -238,15 +238,36 @@ paths:
     get:
       tags:
         - Search
-      description: Returns tree of all publicly available Eukaryotic genome assemblies
+      description: >-
+        Returns the targets tree one taxon at a time. Without parameters the root
+        is returned. With node, the taxon with that id is returned. With term, the
+        ancestors of every taxon or assembly with that name are returned, with the
+        expanded nodes and matched target ids. Each returned taxon lists summaries
+        of its direct children in d; children that are taxa can be requested by node.
       operationId: getSearchTreeTargets
+      parameters:
+        - name: node
+          in: query
+          description: Id of the taxon to return. Ignored when term is given.
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+        - name: term
+          in: query
+          description: Name of a taxon or assembly to locate in the tree.
+          required: false
+          schema:
+            type: string
       responses:
         200:
-          description: A tree object
+          description: A tree node, or term result with nodes, expand and targets
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Tree"
+        404:
+          description: targets.json is not available, or the node is not a taxon
       x-eov-operation-handler: routes/search
   /search/tree/available:
     get:
@@ -287,12 +308,15 @@ paths:
       description: >-
         Returns datasets matching a search term. Without page or size the response
         is an array of all matches. With page or size the response is a paged object.
-        Results are sorted by id.
+        Results are sorted by id unless sort is given. With sort, results are ordered
+        by that top-level field (records without a value come last) with id as the tie-breaker.
       operationId: getSearchByTerm
       parameters:
         - $ref: "#/components/parameters/termParam"
         - $ref: "#/components/parameters/pageParam"
         - $ref: "#/components/parameters/sizeParam"
+        - $ref: "#/components/parameters/sortParam"
+        - $ref: "#/components/parameters/orderParam"
       responses:
         200:
           description: An array of Datasets, or a paged object when page or size is given
@@ -725,13 +749,33 @@ components:
       schema:
         type: integer
         minimum: 1
+    sortParam:
+      name: sort
+      in: query
+      description: Top-level dataset field to sort by, e.g. name, taxid, records. Fields holding objects are not sortable.
+      required: false
+      schema:
+        type: string
+        pattern: "^[A-Za-z_][A-Za-z0-9_]*$"
+    orderParam:
+      name: order
+      in: query
+      description: Sort direction, used with sort. Default asc.
+      required: false
+      schema:
+        type: string
+        enum:
+          - asc
+          - desc
+        default: asc
     modeParam:
       name: mode
       in: query
       description: >-
         Search index update mode. fast reuses search.json when its schema is current.
         mtime also regenerates a record when meta.json is newer than search.json.
-        force regenerates every record. Defaults to BTK_SEARCH_UPDATE_MODE, or fast.
+        force regenerates every record. live regenerates every record and refreshes
+        taxonomy from GoaT. Defaults to BTK_SEARCH_UPDATE_MODE, or fast.
       required: false
       schema:
         type: string
@@ -739,3 +783,4 @@ components:
           - fast
           - mtime
           - force
+          - live

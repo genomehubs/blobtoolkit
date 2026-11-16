@@ -5,10 +5,11 @@ const logError = require("../functions/logger").logError;
 const dataDirectory = config.filePath;
 const readYaml = require("../functions/io").readYaml;
 const readYamlSync = require("../functions/io").readYamlSync;
-const checkCompression = require("../functions/io").checkCompression;
+const goat = require("../functions/goat");
 
 const SEARCH_SCHEMA_VERSION = 1;
-const UPDATE_MODES = ["fast", "mtime", "force"];
+const UPDATE_MODES = ["fast", "mtime", "force", "live"];
+const TARGETS_CHECK_MS = 60 * 60 * 1000;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 500;
 
@@ -51,6 +52,28 @@ const normaliseMode = (mode) => {
     : "fast";
 };
 
+const GCA_PREFIX = /^GCA_\d+([._]\d+)?$/;
+const gcaKey = (value) => (value ? value.match(/^GCA_\d+/)?.[0] : undefined);
+const superseded = new WeakSet();
+
+const markSuperseded = (md) => {
+  if (!config.supersedeByAccession) return;
+  let chains = new Set(
+    md.filter((m) => GCA_PREFIX.test(m.prefix)).map((m) => gcaKey(m.prefix)),
+  );
+  md.forEach((m) => {
+    let key = gcaKey(m.accession);
+    if (key && chains.has(key) && !GCA_PREFIX.test(m.prefix)) {
+      superseded.add(m);
+    }
+  });
+};
+
+const isCurrent = (m) => m.latest == m.revision && !superseded.has(m);
+
+// force and live rebuild every record instead of reusing search.json.
+const rebuildsCache = (mode) => mode == "force" || mode == "live";
+
 const readSearchCache = async (dir) => {
   try {
     return JSON.parse(await fsPromises.readFile(`${dir}/search.json`, "utf8"));
@@ -60,7 +83,7 @@ const readSearchCache = async (dir) => {
 };
 
 const cacheIsValid = async (dir, cache, metaPath, mode) => {
-  if (!cache || mode == "force") return false;
+  if (!cache || rebuildsCache(mode)) return false;
   if (cache.schema_version !== SEARCH_SCHEMA_VERSION) return false;
   if (config.dataset_table && !cache.summary_checked) return false;
   if (mode == "mtime") {
@@ -71,12 +94,55 @@ const cacheIsValid = async (dir, cache, metaPath, mode) => {
   return true;
 };
 
-const buildSearchCache = async (dir, file) => {
+const MAX_LOOKUP_FAILURES = 10;
+
+const newLookups = () => ({ found: new Map(), failures: 0 });
+
+// One GoaT record request per taxid per run. Failures are logged and skipped,
+// and lookups stop after MAX_LOOKUP_FAILURES so a GoaT outage cannot stall a run.
+const cachedLineage = async (taxid, lookups) => {
+  if (!lookups.found.has(taxid)) {
+    if (lookups.failures >= MAX_LOOKUP_FAILURES) return undefined;
+    try {
+      lookups.found.set(taxid, await goat.fetchLineage(taxid, config.goatApi));
+    } catch (error) {
+      lookups.failures++;
+      logError({ message: error });
+      if (lookups.failures == MAX_LOOKUP_FAILURES) {
+        logError({
+          message: `GoaT lookups stopped after ${MAX_LOOKUP_FAILURES} failures`,
+        });
+      }
+      return undefined;
+    }
+  }
+  return lookups.found.get(taxid);
+};
+
+// Replaces lineage ranks with GoaT values; ranks GoaT does not return are removed.
+const applyLineage = (dsMeta, lookup) => {
+  ranks.slice(0, 8).forEach((rank) => {
+    if (lookup.ranks[rank]) {
+      dsMeta[rank] = lookup.ranks[rank];
+    } else {
+      delete dsMeta[rank];
+    }
+  });
+  if (lookup.scientific_name) {
+    dsMeta.taxon_name = lookup.scientific_name;
+  }
+};
+
+const buildSearchCache = async (dir, file, lookups) => {
   let dsMeta = parseMeta(await readYaml(`${dir}/${file}`));
   dsMeta.id = dir.replace(/^.+\//, "");
   if (!dsMeta.hasOwnProperty("revision")) {
     let [prefix, revision] = dsMeta.id.split(".");
     dsMeta.revision = revision ? revision * 1 : 0;
+  }
+  if (lookups && dsMeta.taxid) {
+    let lookup = await cachedLineage(String(dsMeta.taxid), lookups);
+    if (lookup) applyLineage(dsMeta, lookup);
   }
   let summary_checked = false;
   if (config.dataset_table) {
@@ -109,9 +175,10 @@ const writeSearchCache = async (dir, cache) => {
   }
 };
 
-const readMeta = async (dir, md, mode) => {
+const readMeta = async (dir, md, mode, lookups) => {
   md = md || [];
   mode = normaliseMode(mode);
+  if (mode == "live" && !lookups) lookups = newLookups();
   versions = {};
   md.forEach((o, i) => {
     if (!versions[o.prefix]) {
@@ -124,14 +191,14 @@ const readMeta = async (dir, md, mode) => {
     let path = dir + "/" + file;
     let stat = await fsPromises.stat(path);
     if (stat.isDirectory()) {
-      await readMeta(path, md, mode);
+      await readMeta(path, md, mode, lookups);
     } else if (
       (file == "meta.json" || file == "meta.json.gz") &&
       stat.isFile()
     ) {
-      let cache = mode == "force" ? undefined : await readSearchCache(dir);
+      let cache = rebuildsCache(mode) ? undefined : await readSearchCache(dir);
       if (!(await cacheIsValid(dir, cache, path, mode))) {
-        cache = await buildSearchCache(dir, file);
+        cache = await buildSearchCache(dir, file, lookups);
         await writeSearchCache(dir, cache);
       }
       let dsMeta = cache.record;
@@ -203,7 +270,7 @@ const generateIndex = (meta) => {
   let ctr = 0;
   let terms = {};
   meta.forEach((m, i) => {
-    if (m.latest == m.revision) {
+    if (isCurrent(m)) {
       Object.keys(m).forEach((k) => {
         if (!fields.hasOwnProperty(k)) {
           fields[k] = ctr;
@@ -246,12 +313,44 @@ const ranks = [
   "id",
 ];
 
-const generateTree = (meta) => {
+const baseAccession = (value) => value && value.replace(/\.\d+$/, "");
+
+// Leaves are dataset ids or accessions; base accessions also match versioned datasets.
+const collectTargetKeys = (node, keys = new Set()) => {
+  Object.entries(node.d || {}).forEach(([key, child]) => {
+    if (child.d) {
+      collectTargetKeys(child, keys);
+    } else {
+      keys.add(key);
+      keys.add(baseAccession(key));
+    }
+  });
+  return keys;
+};
+
+const inTargets = (ds, keys) =>
+  keys.has(ds.id) ||
+  keys.has(ds.accession) ||
+  keys.has(baseAccession(ds.accession));
+
+const loadTargetKeys = async () => {
+  try {
+    let targets = await readYaml(`${dataDirectory}/targets.json`);
+    let keys = targets && collectTargetKeys(targets);
+    return keys && keys.size ? keys : undefined;
+  } catch (error) {
+    logError({ message: error });
+    return undefined;
+  }
+};
+
+const generateTree = (meta, targetKeys) => {
   let tree = { n: 0, r: "root", d: {}, a: 0, s: 0 };
   let nodes = ["root"];
   let species = {};
   let prefixes = {};
-  meta.forEach((ds, i) => {
+  meta.filter(isCurrent).forEach((ds, i) => {
+    if (targetKeys && !inTargets(ds, targetKeys)) return;
     let prefix = ds.prefix;
     if (!prefixes[prefix]) {
       prefixes[prefix] = true;
@@ -326,10 +425,11 @@ const loadFullIndex = async (mode) => {
     // Load metadata into full index
     status = "INDEXING";
     newMeta = await readMeta(dataDirectory, undefined, mode);
+    markSuperseded(newMeta);
     newIndex = generateIndex(newMeta);
     newKeys = Object.keys(newIndex.values);
     if (config.dataset_table) {
-      newTree = generateTree(newMeta);
+      newTree = generateTree(newMeta, await loadTargetKeys());
       tree = newTree;
     }
     meta = newMeta;
@@ -358,6 +458,71 @@ const loadIndex = async (mode) => {
   }
 };
 
+// Base accession of each record; current datasets win over superseded ones.
+const accessionIds = (records) => {
+  let ids = {};
+  records.forEach((m) => {
+    if (!m.accession) return;
+    [m.accession, baseAccession(m.accession)].forEach((key) => {
+      if (!ids[key] || isCurrent(m)) ids[key] = m.id;
+    });
+  });
+  return ids;
+};
+
+// Fetches GoaT assemblies and writes targets.json. Keeps the old file on failure.
+const refreshTargets = async (dir, records, pageSize) => {
+  let rows = await goat.fetchAssemblies(config.goatSearchApi, pageSize);
+  if (!rows.length) {
+    throw new Error("GoaT returned no assemblies; targets.json not updated");
+  }
+  let tree = goat.buildTargetTree(rows, accessionIds(records));
+  await goat.writeTargets(`${dir}/targets.json`, tree);
+  targetIndex = undefined;
+  return tree;
+};
+
+let targetsUpdating = false;
+
+const updateTargets = async () => {
+  if (targetsUpdating || status !== "OK") return false;
+  targetsUpdating = true;
+  try {
+    await refreshTargets(dataDirectory, meta);
+    if (config.dataset_table) {
+      tree = generateTree(meta, await loadTargetKeys());
+    }
+    return true;
+  } catch (error) {
+    logError({ message: error });
+    return false;
+  } finally {
+    targetsUpdating = false;
+  }
+};
+
+const targetsAgeMs = async () => {
+  try {
+    let stat = await fsPromises.stat(`${dataDirectory}/targets.json`);
+    return Date.now() - stat.mtimeMs;
+  } catch (error) {
+    return Infinity;
+  }
+};
+
+// Refreshes targets.json when older than BTK_TARGETS_UPDATE_HOURS (0 disables).
+const scheduleTargetUpdates = () => {
+  let hours = config.targetsUpdateHours;
+  if (!(hours > 0)) return;
+  const check = async () => {
+    if ((await targetsAgeMs()) >= hours * 60 * 60 * 1000) {
+      await updateTargets();
+    }
+  };
+  setTimeout(check, 60 * 1000).unref();
+  setInterval(check, TARGETS_CHECK_MS).unref();
+};
+
 const autocomplete = (term) => {
   let results = [];
   try {
@@ -366,7 +531,7 @@ const autocomplete = (term) => {
       results.push({
         term: "all",
         field: "all records",
-        names: meta.filter((o) => o.latest == o.revision).map((o) => o.name),
+        names: meta.filter(isCurrent).map((o) => o.name),
       });
     } else {
       keys.forEach((k) => {
@@ -391,7 +556,7 @@ const search = (term) => {
   let arr = [];
   try {
     if (term.match(/^all$/i)) {
-      return meta.filter((o) => o.latest == o.revision);
+      return meta.filter(isCurrent);
     }
     if (!term || !index.values || !index.values[term]) {
       return [];
@@ -442,17 +607,91 @@ const tabulate = (term) => {
 };
 
 const getSearchTreeTargets = async (req, res) => {
-  file = await checkCompression(`${dataDirectory}/targets.json`);
-  if (file) {
-    res.setHeader("content-type", "application/json");
-    if (file.endsWith(".gz")) {
-      res.setHeader("content-encoding", "gzip");
-    }
-    res.sendFile(file);
-  } else {
-    res.sendStatus(404);
+  res.setHeader("content-type", "application/json");
+  let index = await getTargetIndex();
+  if (!index) return res.sendStatus(404);
+  if (req.query.term !== undefined) {
+    return res.json(targetTerm(index, String(req.query.term)));
   }
+  let id = req.query.node === undefined ? index.root.n : Number(req.query.node);
+  let node = index.nodes.get(id);
+  if (!node || !node.r) return res.sendStatus(404);
+  res.json(nodeResponse(node));
 };
+// Targets tree index, built from targets.json on first use and reset after a refresh.
+let targetIndex;
+
+const childSummary = (node) => {
+  let summary = { n: node.n };
+  if (node.r !== undefined) summary.r = node.r;
+  if (node.ta !== undefined) summary.ta = node.ta;
+  if (node.ts !== undefined) summary.ts = node.ts;
+  return summary;
+};
+
+// A taxon with summaries of its direct children. Deeper levels are requested as the viewer expands.
+const nodeResponse = (node) => {
+  let response = childSummary(node);
+  if (node.d) {
+    response.d = {};
+    Object.entries(node.d).forEach(([name, child]) => {
+      response.d[name] = childSummary(child);
+    });
+  }
+  return response;
+};
+
+const indexTargets = (root) => {
+  let index = { root, nodes: new Map(), parents: new Map(), names: new Map() };
+  const visit = (node) => {
+    index.nodes.set(node.n, node);
+    Object.entries(node.d || {}).forEach(([name, child]) => {
+      index.parents.set(child.n, node.n);
+      if (!index.names.has(name)) index.names.set(name, []);
+      index.names.get(name).push(child.n);
+      visit(child);
+    });
+  };
+  visit(root);
+  return index;
+};
+
+const getTargetIndex = async () => {
+  if (!targetIndex) {
+    try {
+      let root = await readYaml(`${dataDirectory}/targets.json`);
+      if (root && root.d) targetIndex = indexTargets(root);
+    } catch (error) {
+      return undefined;
+    }
+  }
+  return targetIndex;
+};
+
+// Ancestor nodes of every node named term, so the viewer can open the path to it.
+// Nodes are listed top-down so each parent precedes its children.
+// expand maps each ancestor id to its parent id, as the viewer's expanded nodes do.
+const targetTerm = (index, term) => {
+  let nodes = new Map();
+  let expand = {};
+  let targets = (index.names.get(term) || []).slice();
+  targets.forEach((id) => {
+    let chain = [];
+    let ancestor = index.parents.get(id);
+    while (ancestor !== undefined && ancestor !== index.root.n) {
+      chain.unshift(ancestor);
+      ancestor = index.parents.get(ancestor);
+    }
+    chain.forEach((ancestorId) => {
+      expand[ancestorId] = index.parents.get(ancestorId);
+      if (!nodes.has(ancestorId)) {
+        nodes.set(ancestorId, nodeResponse(index.nodes.get(ancestorId)));
+      }
+    });
+  });
+  return { term, nodes: [...nodes.values()], expand, targets };
+};
+
 const getSearchTreeAvailable = async (req, res) => {
   res.setHeader("content-type", "application/json");
   res.json(tree);
@@ -463,6 +702,45 @@ const getAutocompleteByTerm = async (req, res) => {
 };
 const compareIds = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const sortById = (records) => records.slice().sort(compareIds);
+
+// Sorts by a top-level scalar field. Records without a value sort last in either
+// order, and ties fall back to id so paging stays stable.
+const sortRecords = (records, field, order) => {
+  if (!field) return sortById(records);
+  const direction = order === "desc" ? -1 : 1;
+  const valueOf = (record) => {
+    if (!Object.prototype.hasOwnProperty.call(record, field)) return undefined;
+    const value = record[field];
+    return ["string", "number", "boolean"].includes(typeof value)
+      ? value
+      : undefined;
+  };
+  return records.slice().sort((a, b) => {
+    const va = valueOf(a);
+    const vb = valueOf(b);
+    if (va === undefined || vb === undefined) {
+      if (va === vb) return compareIds(a, b);
+      return va === undefined ? 1 : -1;
+    }
+    let ca = va;
+    let cb = vb;
+    if (typeof va !== typeof vb) {
+      ca = String(va);
+      cb = String(vb);
+    }
+    if (ca < cb) return -direction;
+    if (ca > cb) return direction;
+    return compareIds(a, b);
+  });
+};
+
+const parseSort = (query) => {
+  if (!query || query.sort === undefined) return {};
+  return {
+    field: String(query.sort),
+    order: query.order === "desc" ? "desc" : "asc",
+  };
+};
 
 const parsePaging = (query) => {
   if (query.page === undefined && query.size === undefined) return undefined;
@@ -501,7 +779,8 @@ const getSearchByTerm = async (req, res) => {
     res.send(lines.map((line) => `${line}\n`).join(""));
   } else {
     res.setHeader("content-type", "application/json");
-    let results = sortById(search(req.params.term));
+    let sort = parseSort(req.query);
+    let results = sortRecords(search(req.params.term), sort.field, sort.order);
     res.json(paging ? paginate(results, paging) : results);
   }
 };
@@ -523,9 +802,22 @@ module.exports = {
   listMeta,
   generateIndex,
   normaliseMode,
+  markSuperseded,
+  isCurrent,
+  generateTree,
+  collectTargetKeys,
+  accessionIds,
+  refreshTargets,
+  updateTargets,
+  scheduleTargetUpdates,
   parsePaging,
   paginate,
   sortById,
+  sortRecords,
+  parseSort,
+  indexTargets,
+  nodeResponse,
+  targetTerm,
   SEARCH_SCHEMA_VERSION,
   status: () => status,
   total: () => meta.length,
