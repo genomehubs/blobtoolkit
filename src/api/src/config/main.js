@@ -35,6 +35,8 @@ module.exports = {
   basename: process.env.BTK_BASENAME || "",
   // search index reload key
   reloadKey: process.env.BTK_RELOAD_KEY || "",
+  // search.json update mode: fast, mtime or force
+  searchUpdateMode: process.env.BTK_SEARCH_UPDATE_MODE || "fast",
   // path to read flatfiles
   filePath: FILE_PATH,
   // Path to write flatfiles

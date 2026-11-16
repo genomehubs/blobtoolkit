@@ -7,6 +7,11 @@ const readYaml = require("../functions/io").readYaml;
 const readYamlSync = require("../functions/io").readYamlSync;
 const checkCompression = require("../functions/io").checkCompression;
 
+const SEARCH_SCHEMA_VERSION = 1;
+const UPDATE_MODES = ["fast", "mtime", "force"];
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 500;
+
 const parseMeta = (obj) => {
   let meta = {};
   if (!obj) return meta;
@@ -39,8 +44,74 @@ const parseMeta = (obj) => {
   return meta;
 };
 
-const readMeta = async (dir, md) => {
+const normaliseMode = (mode) => {
+  if (UPDATE_MODES.includes(mode)) return mode;
+  return UPDATE_MODES.includes(config.searchUpdateMode)
+    ? config.searchUpdateMode
+    : "fast";
+};
+
+const readSearchCache = async (dir) => {
+  try {
+    return JSON.parse(await fsPromises.readFile(`${dir}/search.json`, "utf8"));
+  } catch (error) {
+    return undefined;
+  }
+};
+
+const cacheIsValid = async (dir, cache, metaPath, mode) => {
+  if (!cache || mode == "force") return false;
+  if (cache.schema_version !== SEARCH_SCHEMA_VERSION) return false;
+  if (config.dataset_table && !cache.summary_checked) return false;
+  if (mode == "mtime") {
+    let metaStat = await fsPromises.stat(metaPath);
+    let cacheStat = await fsPromises.stat(`${dir}/search.json`);
+    return metaStat.mtimeMs <= cacheStat.mtimeMs;
+  }
+  return true;
+};
+
+const buildSearchCache = async (dir, file) => {
+  let dsMeta = parseMeta(await readYaml(`${dir}/${file}`));
+  dsMeta.id = dir.replace(/^.+\//, "");
+  if (!dsMeta.hasOwnProperty("revision")) {
+    let [prefix, revision] = dsMeta.id.split(".");
+    dsMeta.revision = revision ? revision * 1 : 0;
+  }
+  let summary_checked = false;
+  if (config.dataset_table) {
+    let sumpath = `${dir}/summary.json`;
+    if (file.endsWith(".gz")) {
+      sumpath += ".gz";
+    }
+    try {
+      let summary = await readYaml(sumpath);
+      if (summary && summary.hasOwnProperty("summaryStats")) {
+        dsMeta.summaryStats = summary.summaryStats;
+      }
+    } catch (error) {}
+    summary_checked = true;
+  }
+  return {
+    schema_version: SEARCH_SCHEMA_VERSION,
+    summary_checked,
+    record: JSON.parse(JSON.stringify(dsMeta)),
+  };
+};
+
+const writeSearchCache = async (dir, cache) => {
+  let path = `${dir}/search.json`;
+  try {
+    await fsPromises.writeFile(`${path}.tmp`, JSON.stringify(cache));
+    await fsPromises.rename(`${path}.tmp`, path);
+  } catch (error) {
+    logError({ message: error });
+  }
+};
+
+const readMeta = async (dir, md, mode) => {
   md = md || [];
+  mode = normaliseMode(mode);
   versions = {};
   md.forEach((o, i) => {
     if (!versions[o.prefix]) {
@@ -53,29 +124,17 @@ const readMeta = async (dir, md) => {
     let path = dir + "/" + file;
     let stat = await fsPromises.stat(path);
     if (stat.isDirectory()) {
-      await readMeta(path, md);
+      await readMeta(path, md, mode);
     } else if (
       (file == "meta.json" || file == "meta.json.gz") &&
       stat.isFile()
     ) {
-      let dsMeta = parseMeta(await readYaml(path));
-      dsMeta.id = dir.replace(/^.+\//, "");
-      if (!dsMeta.hasOwnProperty("revision")) {
-        let [prefix, revision] = dsMeta.id.split(".");
-        dsMeta.revision = revision ? revision * 1 : 0;
+      let cache = mode == "force" ? undefined : await readSearchCache(dir);
+      if (!(await cacheIsValid(dir, cache, path, mode))) {
+        cache = await buildSearchCache(dir, file);
+        await writeSearchCache(dir, cache);
       }
-      if (config.dataset_table) {
-        let sumpath = `${dir}/summary.json`;
-        if (file.endsWith(".gz")) {
-          sumpath += ".gz";
-        }
-        try {
-          let summary = await readYaml(sumpath);
-          if (summary && summary.hasOwnProperty("summaryStats")) {
-            dsMeta.summaryStats = summary.summaryStats;
-          }
-        } catch (error) {}
-      }
+      let dsMeta = cache.record;
       if (!versions[dsMeta.prefix]) {
         versions[dsMeta.prefix] = {};
       }
@@ -261,12 +320,12 @@ let status = "LOADING";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const loadFullIndex = async () => {
+const loadFullIndex = async (mode) => {
   try {
     await sleep(10000);
     // Load metadata into full index
     status = "INDEXING";
-    newMeta = await readMeta(dataDirectory);
+    newMeta = await readMeta(dataDirectory, undefined, mode);
     newIndex = generateIndex(newMeta);
     newKeys = Object.keys(newIndex.values);
     if (config.dataset_table) {
@@ -283,7 +342,7 @@ const loadFullIndex = async () => {
   }
 };
 
-const loadIndex = async () => {
+const loadIndex = async (mode) => {
   try {
     let newMeta = await listMeta(dataDirectory, {});
     let newIndex = generateIndex(newMeta);
@@ -292,7 +351,7 @@ const loadIndex = async () => {
     index = newIndex;
     keys = newKeys || [];
     status = "INDEXING";
-    loadFullIndex();
+    loadFullIndex(normaliseMode(mode));
   } catch (message) {
     logError({ message });
     status = "NOT OK";
@@ -353,8 +412,8 @@ const search = (term) => {
 };
 
 const tabulate = (term) => {
-  let json = search(term);
-  prefixes = {};
+  let json = sortById(search(term));
+  let prefixes = {};
   json.forEach((assembly) => {
     if (assembly.summaryStats) {
       if (assembly.accession && assembly.accession.startsWith("GCA_")) {
@@ -367,7 +426,7 @@ const tabulate = (term) => {
           let ratio = 1 / assembly.summaryStats.stats.spanOverN50;
           ratio = ratio ? ratio : assembly.summaryStats.stats.n50OverSpan;
           let string = `${id}\t${pctHit.toPrecision(
-            3
+            3,
           )}\t${pctTarget.toPrecision(3)}\t${ratio.toPrecision(2)}`;
           prefixes[prefix] = {
             id,
@@ -379,15 +438,7 @@ const tabulate = (term) => {
       }
     }
   });
-  let byGCA = "";
-  let byWGS = "";
-  Object.keys(prefixes).forEach((prefix) => {
-    byGCA += `${prefixes[prefix].gca}\n`;
-    // if (prefix.match(/[A-Z]{4,6}\d{2}/)) {
-    //   byWGS += `${prefixes[prefix].wgs}\n`;
-    // }
-  });
-  return byGCA + byWGS;
+  return Object.keys(prefixes).map((prefix) => prefixes[prefix].gca);
 };
 
 const getSearchTreeTargets = async (req, res) => {
@@ -410,26 +461,57 @@ const getAutocompleteByTerm = async (req, res) => {
   res.setHeader("content-type", "application/json");
   res.json(autocomplete(req.params.term));
 };
+const compareIds = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+const sortById = (records) => records.slice().sort(compareIds);
+
+const parsePaging = (query) => {
+  if (query.page === undefined && query.size === undefined) return undefined;
+  let page = Math.max(1, parseInt(query.page, 10) || 1);
+  let size = Math.min(
+    MAX_PAGE_SIZE,
+    Math.max(1, parseInt(query.size, 10) || DEFAULT_PAGE_SIZE),
+  );
+  return { page, size };
+};
+
+const paginate = (items, { page, size }) => ({
+  total: items.length,
+  page,
+  size,
+  results: items.slice((page - 1) * size, page * size),
+});
+
 const getSearchByTerm = async (req, res) => {
+  let paging = parsePaging(req.query || {});
   if (req.query && req.query.display == "tsv") {
     res.setHeader("content-type", "text/tab-separated-values");
     today = new Date().toISOString().substring(0, 10).replace(/-/g, "");
     res.setHeader(
       "content-disposition",
-      `attachment; filename=BlobToolKit_${today}.tsv`
+      `attachment; filename=BlobToolKit_${today}.tsv`,
     );
-    res.send(tabulate(req.params.term));
+    let lines = tabulate(req.params.term);
+    if (paging) {
+      res.setHeader("x-total-count", lines.length);
+      lines = lines.slice(
+        (paging.page - 1) * paging.size,
+        paging.page * paging.size,
+      );
+    }
+    res.send(lines.map((line) => `${line}\n`).join(""));
   } else {
     res.setHeader("content-type", "application/json");
-    res.json(search(req.params.term));
+    let results = sortById(search(req.params.term));
+    res.json(paging ? paginate(results, paging) : results);
   }
 };
 const getSearchReload = async (req, res) => {
   res.setHeader("content-type", "application/json");
   if (req.params.key == config.reloadKey) {
+    let mode = normaliseMode(req.query.mode);
     status = "RELOADING";
-    loadIndex();
-    res.json({ status: "OK" });
+    loadIndex(mode);
+    res.json({ status: "OK", mode });
   } else {
     res.json({ status: "INVALID KEY" });
   }
@@ -437,6 +519,14 @@ const getSearchReload = async (req, res) => {
 
 module.exports = {
   loadIndex,
+  readMeta,
+  listMeta,
+  generateIndex,
+  normaliseMode,
+  parsePaging,
+  paginate,
+  sortById,
+  SEARCH_SCHEMA_VERSION,
   status: () => status,
   total: () => meta.length,
   getAutocompleteByTerm,

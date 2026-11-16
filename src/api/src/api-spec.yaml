@@ -284,19 +284,26 @@ paths:
     get:
       tags:
         - Search
-      description: Returns an array of datasets matching a search term
+      description: >-
+        Returns datasets matching a search term. Without page or size the response
+        is an array of all matches. With page or size the response is a paged object.
+        Results are sorted by id.
       operationId: getSearchByTerm
       parameters:
         - $ref: "#/components/parameters/termParam"
+        - $ref: "#/components/parameters/pageParam"
+        - $ref: "#/components/parameters/sizeParam"
       responses:
         200:
-          description: An array of Datasets
+          description: An array of Datasets, or a paged object when page or size is given
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Dataset"
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Dataset"
+                  - $ref: "#/components/schemas/PagedDatasets"
       x-eov-operation-handler: routes/search
   /search/reload/{key}:
     get:
@@ -306,6 +313,7 @@ paths:
       operationId: getSearchReload
       parameters:
         - $ref: "#/components/parameters/reloadKeyParam"
+        - $ref: "#/components/parameters/modeParam"
       responses:
         200:
           description: Request status
@@ -332,6 +340,20 @@ paths:
       x-eov-operation-handler: routes/summary
 components:
   schemas:
+    PagedDatasets:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of matches before paging
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Dataset"
     Dataset:
       type: object
       properties:
@@ -687,3 +709,33 @@ components:
       required: true
       schema:
         type: string
+    pageParam:
+      name: page
+      in: query
+      description: Page number, starting at 1. Paging applies only when page or size is given.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+    sizeParam:
+      name: size
+      in: query
+      description: Results per page. Default 20, maximum 500. Paging applies only when page or size is given.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+    modeParam:
+      name: mode
+      in: query
+      description: >-
+        Search index update mode. fast reuses search.json when its schema is current.
+        mtime also regenerates a record when meta.json is newer than search.json.
+        force regenerates every record. Defaults to BTK_SEARCH_UPDATE_MODE, or fast.
+      required: false
+      schema:
+        type: string
+        enum:
+          - fast
+          - mtime
+          - force

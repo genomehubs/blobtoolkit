@@ -6,7 +6,7 @@ Data and pre-generated static images can be retrieved directly via the BlobToolK
 
 ### /api/v1/search/all
 
-Returns an array of top-level dataset metadata containing dataset `name`, `id` and any additional searchable fields for all hosted datasets.
+Returns an array of top-level dataset metadata containing dataset `name`, `id` and any additional searchable fields for all hosted datasets. Results are sorted by `id`. Paging parameters are supported, see [Paging](#paging).
 
 ```
 curl "https://example.com/api/v1/search/all"
@@ -31,7 +31,7 @@ curl "https://example.com/api/v1/search/all"
 
 ### /api/v1/search/:term
 
-Returns an array of top-level dataset metadata for all datasets matching `:term`.
+Returns an array of top-level dataset metadata for all datasets matching `:term`, sorted by `id`.
 
 ```
 curl "https://example.com/api/v1/search/Caenorhabditis"
@@ -51,6 +51,50 @@ curl "https://example.com/api/v1/search/Caenorhabditis"
   ...
 ]
 ```
+
+With `display=tsv` the response is a tab-separated list of GCA accessions, one per prefix.
+
+### Paging
+
+Paging is optional. Pass `page` (starting at 1) or `size` (default 20, maximum 500) to enable it. Without either parameter, the full unpaged array is returned as above.
+
+```
+curl "https://example.com/api/v1/search/Caenorhabditis?page=2&size=50"
+```
+
+```json
+{
+  "total": 137,
+  "page": 2,
+  "size": 50,
+  "results": [
+    { "id": "...", ... },
+    ...
+  ]
+}
+```
+
+`total` is the number of matches before paging. A page beyond the end returns an empty `results` array.
+
+With `display=tsv`, paging returns the requested slice of lines and sets the `x-total-count` header to the total number of lines.
+
+```
+curl -i "https://example.com/api/v1/search/all?display=tsv&page=1&size=10"
+```
+
+### /api/v1/search/reload/:key
+
+Reloads the search index. Requires the reload key. The optional `mode` parameter sets how cached `search.json` files are used:
+
+- `fast` (default, or `BTK_SEARCH_UPDATE_MODE`): reuse `search.json` when its schema is current.
+- `mtime`: also regenerate a dataset when its `meta.json` is newer than `search.json`.
+- `force`: regenerate every `search.json`.
+
+```
+curl "https://example.com/api/v1/search/reload/:key?mode=mtime"
+```
+
+If `search.json` is missing or out of date it is created from `meta.json` on startup or reload. Writes are atomic, and a read-only dataset directory still serves results from `meta.json`.
 
 ## Dataset
 
@@ -130,15 +174,15 @@ curl "https://example.com/api/v1/dataset/id/LFJK02/assembly"
 
 ```json
 {
-  "accession":"GCA_001643735.2",
-  "alias":"ASM164373v2",
-  "bioproject":"PRJNA248909",
-  "biosample":"SAMN02803904",
-  "level":"scaffold",
-  "prefix":"LFJK02",
-  "scaffold-count":1591,
-  "span":118549266,
-  "file":"LFJK02.fasta"
+  "accession": "GCA_001643735.2",
+  "alias": "ASM164373v2",
+  "bioproject": "PRJNA248909",
+  "biosample": "SAMN02803904",
+  "level": "scaffold",
+  "prefix": "LFJK02",
+  "scaffold-count": 1591,
+  "span": 118549266,
+  "file": "LFJK02.fasta"
 }
 ```
 
@@ -241,9 +285,11 @@ Returns an image for a specified dataset view.
 ```
 curl -o LFJK02.blob.png "https://example.com/api/v1/image/LFJK02/blob"
 ```
+
 ```
 curl -o LFJK02.cumulative.png "https://example.com/api/v1/image/LFJK02/cumulative"
 ```
+
 ```
 curl -o LFJK02.snail.png "https://example.com/api/v1/image/LFJK02/snail"
 ```
@@ -255,9 +301,11 @@ Returns a specific `:type` for dataset views with more then one static image typ
 ```
 curl -o LFJK02.blob.circle.png "https://example.com/api/v1/image/LFJK02/blob/circle"
 ```
+
 ```
 curl -o LFJK02.blob.hex.png "https://example.com/api/v1/image/LFJK02/blob/hex"
 ```
+
 ```
 curl -o LFJK02.blob.square.png "https://example.com/api/v1/image/LFJK02/blob/square"
 ```
@@ -271,6 +319,7 @@ Determines the image `:format` to retrieve, typically `PNG` and `SVG` formats wi
 ```
 curl -o LFJK02.blob.png "https://example.com/api/v1/image/LFJK02/blob?format=png"
 ```
+
 ```
 curl -o LFJK02.blob.svg "https://example.com/api/v1/image/LFJK02/blob?format=svg"
 ```
