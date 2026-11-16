@@ -3,15 +3,21 @@ import "./style/node_modules.css";
 
 import React, { Component } from "react";
 import {
-  datasetSummaries,
+  datasetPageSummaries,
   getDatasetPage,
   getDatasetPageSize,
+  getDatasetPageTotal,
   getDatasetSorted,
   listingColumns,
   setDatasetPage,
   setDatasetPageSize,
   setDatasetSorted,
 } from "../reducers/datasetTable";
+import {
+  fetchDatasetPage,
+  getDatasetFiltered,
+  setDatasetFiltered,
+} from "../reducers/datasetPage";
 
 import CustomiseDatasetTable from "./CustomiseDatasetTable";
 import DatasetTableCSV from "./DatasetTableCSV";
@@ -20,7 +26,11 @@ import ReactTable from "react-table";
 import { connect } from "react-redux";
 import figure1 from "./img/figure1.jpg";
 import { getColorScheme } from "../reducers/color";
+import { getSearchTerm } from "../reducers/location";
 import styles from "./Layout.scss";
+
+// Shared across renders, as the connected table is recreated on each render.
+let filterTimer = null;
 
 class CSVWrapper extends React.Component {
   constructor(props) {
@@ -73,27 +83,23 @@ class DatasetTableComponent extends Component {
     let columns = this.props.columns;
     let table;
     let hints;
-    if (this.props.data.length > 0) {
+    if (this.props.total > 0 || this.props.filtered.length > 0) {
       table = (
         <ReactTable
           data={this.props.data}
           columns={columns}
           className={"-highlight"}
           min-width={50}
-          defaultPageSize={Math.min(
-            this.props.pageSize,
-            this.props.data.length
-          )}
-          showPageSizeOptions={this.props.data.length > 10}
-          showPagination={this.props.data.length > 10}
-          filterable={this.props.data.length > 1}
+          manual
+          filterable
+          filtered={this.props.filtered}
+          pages={Math.max(1, Math.ceil(this.props.total / this.props.pageSize))}
+          pageSize={this.props.pageSize}
+          showPageSizeOptions={this.props.total > 10}
+          showPagination={this.props.total > 10}
           sorted={this.props.sorted}
+          multiSort={false}
           page={this.props.page}
-          defaultFilterMethod={(filter, row) =>
-            String(row[filter.id])
-              .toLowerCase()
-              .startsWith(filter.value.toLowerCase())
-          }
           getTrProps={(state, rowInfo, column) => {
             return {
               onClick: (e, handleOriginal) => {
@@ -111,17 +117,28 @@ class DatasetTableComponent extends Component {
           onSortedChange={(arr) => {
             this.props.setPage(0);
             this.props.setSorted(arr);
+            this.props.fetchPage(this.props.searchTerm);
+          }}
+          onFilteredChange={(arr) => {
+            this.props.setPage(0);
+            this.props.setFiltered(arr);
+            clearTimeout(filterTimer);
+            filterTimer = setTimeout(() => {
+              this.props.fetchPage(this.props.searchTerm);
+            }, 300);
           }}
           onPageChange={(newPage) => {
             this.props.setPage(newPage);
+            this.props.fetchPage(this.props.searchTerm);
           }}
           onPageSizeChange={(newPageSize, pageIndex) => {
             this.props.changePageSize(
               newPageSize,
               this.props.pageSize,
-              this.props.page
+              this.props.page,
             );
-            return newPageSize, pageIndex;
+            this.props.fetchPage(this.props.searchTerm);
+            return (newPageSize, pageIndex);
           }}
         />
       );
@@ -129,10 +146,10 @@ class DatasetTableComponent extends Component {
         <span className={styles.hints}>
           <ul style={{ marginTop: "0.25em" }}>
             <li>Click headers to sort results.</li>
-            <li>Click a row to view an assembly.</li>
             <li>
               Type in the box at the top of each column to filter assemblies.
             </li>
+            <li>Click a row to view an assembly.</li>
             <li>
               <span
                 className={styles.toggle}
@@ -180,11 +197,14 @@ class DatasetTable extends React.Component {
     super(props);
     this.mapStateToProps = (state) => {
       return {
-        data: datasetSummaries(state),
+        data: datasetPageSummaries(state),
+        total: getDatasetPageTotal(state),
+        searchTerm: getSearchTerm(state),
         columns: listingColumns(state),
         page: getDatasetPage(state),
         pageSize: getDatasetPageSize(state),
         sorted: getDatasetSorted(state),
+        filtered: getDatasetFiltered(state),
         colors: getColorScheme(state),
       };
     };
@@ -197,6 +217,8 @@ class DatasetTable extends React.Component {
           dispatch(setDatasetPage(newPage));
         },
         setSorted: (arr) => dispatch(setDatasetSorted(arr)),
+        setFiltered: (arr) => dispatch(setDatasetFiltered(arr)),
+        fetchPage: (searchTerm) => dispatch(fetchDatasetPage(searchTerm)),
       };
     };
   }
@@ -204,7 +226,7 @@ class DatasetTable extends React.Component {
   render() {
     const ConnectedTable = connect(
       this.mapStateToProps,
-      this.mapDispatchToProps
+      this.mapDispatchToProps,
     )(DatasetTableComponent);
     return <ConnectedTable {...this.props} />;
   }

@@ -13,7 +13,7 @@ const requestIdentifiers = createAction("REQUEST_IDENTIFIERS");
 const receiveIdentifiers = createAction(
   "RECEIVE_IDENTIFIERS",
   (json) => json,
-  () => ({ receivedAt: Date.now() })
+  () => ({ receivedAt: Date.now() }),
 );
 
 const useStoredIdentifiers = createAction("USE_STORED_IDENTIFIERS");
@@ -35,7 +35,7 @@ export const identifiers = handleActions(
       });
     },
   },
-  defaultState()
+  defaultState(),
 );
 
 export const getIdentifiersIsFetching = (state) =>
@@ -56,7 +56,7 @@ export function fetchIdentifiers() {
     return fetch(apiUrl + "/identifiers/" + id)
       .then(
         (response) => response.json(),
-        (error) => console.log("An error occured.", error)
+        (error) => console.log("An error occured.", error),
       )
       .then((json) => {
         if (!Array.isArray(json)) {

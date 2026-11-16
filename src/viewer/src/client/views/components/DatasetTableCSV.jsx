@@ -1,38 +1,30 @@
-import React from 'react'
-import { connect } from 'react-redux'
-import styles from './Plot.scss'
-import { CSVLink, CSVDownload } from 'react-csv'
-import { getDatasetCSVdata } from '../reducers/datasetTable'
-import { getSearchTerm } from '../reducers/location'
+import React from "react";
+import { connect } from "react-redux";
+import { getDatasetCSVUrl } from "../reducers/datasetPage";
+import { getSearchTerm } from "../reducers/location";
 
-export const DatasetCSVComponent = ({data,term}) => {
-  if (!data || data.length == 0) return null
-  return (
-    <CSVDownload
-        filename={term+'.csv'}
-        data={data}
-        target='_blank'/>
-  )
-}
-
-
-class DatasetTableCSV extends React.Component {
-  constructor(props) {
-    super(props);
-    this.mapStateToProps = state => {
-      return {
-        data: getDatasetCSVdata(state),
-        term: getSearchTerm(state)
-      }
-    }
+// Downloads the server-side CSV for the current search, columns and filters.
+export class DatasetCSVComponent extends React.Component {
+  componentDidMount() {
+    const link = document.createElement("a");
+    link.href = this.props.url;
+    link.download = `${this.props.term}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
-  render(){
-    const ConnectedCSV = connect(
-      this.mapStateToProps
-    )(DatasetCSVComponent)
-    return <ConnectedCSV {...this.props}/>
+  render() {
+    return null;
   }
 }
 
-export default DatasetTableCSV
+const mapStateToProps = (state) => {
+  const term = getSearchTerm(state);
+  return {
+    term,
+    url: getDatasetCSVUrl(term)(state),
+  };
+};
+
+export default connect(mapStateToProps)(DatasetCSVComponent);

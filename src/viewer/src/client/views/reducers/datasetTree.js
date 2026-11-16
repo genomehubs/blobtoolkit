@@ -262,6 +262,17 @@ export function expandSearchTerm() {
   };
 }
 
+const RANK_ORDER = [
+  "domain",
+  "kingdom",
+  "phylum",
+  "class",
+  "order",
+  "family",
+  "genus",
+  "species",
+];
+
 export const treeData = createSelector(
   getDatasetTree,
   getTargetTree,
@@ -331,13 +342,14 @@ export const treeData = createSelector(
           let total = obj.d[key].ta;
           let speciesTotal = obj.d[key].ts;
           let node_id = obj.d[key].n;
-          let rank = obj.d[key].r;
+          let rank = RANK_ORDER[depth]; //obj.d[key].r;
           if (!rank || rank == "taxon_name") {
-            rank = "taxon/assembly name";
             if (ranks[depth - 1] == rank) {
               rank = "assembly name";
             } else if (ranks[depth] == ranks[depth - 1]) {
               rank = "assembly name";
+            } else {
+              rank = "taxon name";
             }
           }
           ranks[depth] = rank;

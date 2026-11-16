@@ -50,22 +50,22 @@ export const getAxisTitle = createSelector(
   getMainPlot,
   (axis, plot) => {
     return plot.axes[axis];
-  }
+  },
 );
 
 const getRawDataForX = createSelector(
   (state) => getRawDataForFieldId(state, getXAxis(state)),
-  (data) => data
+  (data) => data,
 );
 
 const getRawDataForY = createSelector(
   (state) => getRawDataForFieldId(state, getYAxis(state)),
-  (data) => data
+  (data) => data,
 );
 
 const getRawDataForZ = createSelector(
   (state) => getRawDataForFieldId(state, getZAxis(state)),
-  (data) => data
+  (data) => data,
 );
 
 export const getRawDataForCat = createSelector(
@@ -82,22 +82,22 @@ export const getRawDataForCat = createSelector(
       return catData;
     }
     return data;
-  }
+  },
 );
 
 const getRawDataForGC = createSelector(
   (state) => getRawDataForFieldId(state, "gc"),
-  (data) => data
+  (data) => data,
 );
 
 const getRawDataForLength = createSelector(
   (state) => getRawDataForFieldId(state, "length"),
-  (data) => data
+  (data) => data,
 );
 
 const getRawDataForNCount = createSelector(
   (state) => getRawDataForFieldId(state, "ncount"),
-  (data) => data
+  (data) => data,
 );
 
 const filterFieldData = (list = [], rawData) => {
@@ -118,7 +118,7 @@ export const getFilteredDataForX = createSelector(
   getRawDataForX,
   (list, rawData) => {
     return filterFieldData(list, rawData);
-  }
+  },
 );
 
 export const getFilteredDataForY = createSelector(
@@ -126,7 +126,7 @@ export const getFilteredDataForY = createSelector(
   getRawDataForY,
   (list, rawData) => {
     return filterFieldData(list, rawData);
-  }
+  },
 );
 
 export const getFilteredDataForZ = createSelector(
@@ -134,7 +134,7 @@ export const getFilteredDataForZ = createSelector(
   getRawDataForZ,
   (list, rawData) => {
     return filterFieldData(list, rawData);
-  }
+  },
 );
 
 export const getFilteredDataForCat = createSelector(
@@ -142,7 +142,7 @@ export const getFilteredDataForCat = createSelector(
   getRawDataForCat,
   (list, rawData) => {
     return filterFieldData(list, rawData);
-  }
+  },
 );
 
 export const getFilteredDataForGC = createSelector(
@@ -150,7 +150,7 @@ export const getFilteredDataForGC = createSelector(
   getRawDataForGC,
   (list, rawData) => {
     return filterFieldData(list, rawData);
-  }
+  },
 );
 
 export const getFilteredDataForLength = createSelector(
@@ -158,7 +158,7 @@ export const getFilteredDataForLength = createSelector(
   getRawDataForLength,
   (list, rawData) => {
     return filterFieldData(list, rawData);
-  }
+  },
 );
 
 export const getFilteredDataForNCount = createSelector(
@@ -166,27 +166,27 @@ export const getFilteredDataForNCount = createSelector(
   getRawDataForNCount,
   (list, rawData) => {
     return filterFieldData(list, rawData);
-  }
+  },
 );
 
 export const getDetailsForX = createSelector(
   (state) => getDetailsForFieldId(state, getXAxis(state)),
-  (data) => data
+  (data) => data,
 );
 
 export const getDetailsForY = createSelector(
   (state) => getDetailsForFieldId(state, getYAxis(state)),
-  (data) => data
+  (data) => data,
 );
 
 const getDetailsForZ = createSelector(
   (state) => getDetailsForFieldId(state, getZAxis(state)),
-  (data) => data
+  (data) => data,
 );
 
 export const getDetailsForCat = createSelector(
   (state) => getDetailsForFieldId(state, getCatAxis(state)),
-  (data) => data
+  (data) => data,
 );
 
 export const getMainPlotData = createSelector(
@@ -235,7 +235,7 @@ export const getMainPlotData = createSelector(
     plotData.axes.cat = catData;
     plotData.meta.cat = catMeta;
     return plotData;
-  }
+  },
 );
 
 export const getAllMainPlotData = createSelector(
@@ -293,7 +293,7 @@ export const getAllMainPlotData = createSelector(
     plotData.meta.cat = catMeta;
     plotData.scale.cat = catMeta.xScale;
     return plotData;
-  }
+  },
 );
 
 export const getAllScatterPlotData = createSelector(
@@ -353,7 +353,7 @@ export const getAllScatterPlotData = createSelector(
       }
     }
     return { data };
-  }
+  },
 );
 
 export const getScatterPlotData = createSelector(
@@ -391,7 +391,7 @@ export const getScatterPlotData = createSelector(
     let len = Math.max(
       plotData.axes.x.values.length,
       plotData.axes.y.values.length,
-      plotData.axes.z.values.length
+      plotData.axes.z.values.length,
     );
     let yClamp = Number.NEGATIVE_INFINITY;
     if (plotData.meta.y.meta) {
@@ -427,7 +427,7 @@ export const getScatterPlotData = createSelector(
     }
     let range = [min, max];
     return { data, range };
-  }
+  },
 );
 
 export const getScatterPlotDataByCategory = createSelector(
@@ -453,7 +453,7 @@ export const getScatterPlotDataByCategory = createSelector(
       data[keys[plotData.axes.cat.values[i]]].push(scatterData.data[i]);
     }
     return { data, bins };
-  }
+  },
 );
 
 const flattenNestedArray = (arr, errorBars, details) => {
@@ -521,7 +521,7 @@ export const getWindowedXAxis = createSelector(
   (axis, windowSize) => {
     let windowSuffix = windowSize == 0.1 ? "" : `_${windowSize}`;
     return `${axis}_windows${windowSuffix}`;
-  }
+  },
 );
 
 export const getWindowedYAxis = createSelector(
@@ -530,7 +530,7 @@ export const getWindowedYAxis = createSelector(
   (axis, windowSize) => {
     let windowSuffix = windowSize == 0.1 ? "" : `_${windowSize}`;
     return `${axis}_windows${windowSuffix}`;
-  }
+  },
 );
 
 export const getWindowedZAxis = createSelector(
@@ -539,7 +539,7 @@ export const getWindowedZAxis = createSelector(
   (axis, windowSize) => {
     let windowSuffix = windowSize == 0.1 ? "" : `_${windowSize}`;
     return `${axis}_windows${windowSuffix}`;
-  }
+  },
 );
 
 export const getWindowedCatAxis = createSelector(
@@ -548,7 +548,7 @@ export const getWindowedCatAxis = createSelector(
   (axis, windowSize) => {
     let windowSuffix = windowSize == 0.1 ? "" : `_${windowSize}`;
     return `${axis}_windows${windowSuffix}`;
-  }
+  },
 );
 
 const getFilteredWindowDataForX = createSelector(
@@ -572,7 +572,7 @@ const getFilteredWindowDataForX = createSelector(
         let { values, sd } = flattenNestedArray(
           data.values,
           errorBars,
-          details
+          details,
         );
         return { ...data, values, sd };
       }
@@ -583,7 +583,7 @@ const getFilteredWindowDataForX = createSelector(
       return { ...mainData, values };
     }
     return mainData;
-  }
+  },
 );
 
 const getFilteredWindowDataForY = createSelector(
@@ -607,7 +607,7 @@ const getFilteredWindowDataForY = createSelector(
         let { values, sd } = flattenNestedArray(
           data.values,
           errorBars,
-          details
+          details,
         );
         return { ...data, values, sd };
       }
@@ -618,7 +618,7 @@ const getFilteredWindowDataForY = createSelector(
       return { ...mainData, values };
     }
     return mainData;
-  }
+  },
 );
 
 const getFilteredWindowDataForZ = createSelector(
@@ -641,7 +641,7 @@ const getFilteredWindowDataForZ = createSelector(
       return { ...mainData, values };
     }
     return mainData;
-  }
+  },
 );
 
 const getFilteredWindowDataForCat = createSelector(
@@ -663,7 +663,7 @@ const getFilteredWindowDataForCat = createSelector(
       return { ...mainData, values };
     }
     return mainData;
-  }
+  },
 );
 
 export const getWindowPlotData = createSelector(
@@ -687,7 +687,7 @@ export const getWindowPlotData = createSelector(
     xMeta,
     yMeta,
     zMeta,
-    catMeta
+    catMeta,
   ) => {
     if (!dsId || !catData) return undefined;
     let plotData = { id: "default", axes: {}, meta: {} };
@@ -725,7 +725,7 @@ export const getWindowPlotData = createSelector(
     plotData.axes.mainCat = mainCatData;
     plotData.meta.cat = catMeta;
     return plotData;
-  }
+  },
 );
 
 export const getWindowBinsForCat = createSelector(
@@ -774,7 +774,7 @@ export const getWindowBinsForCat = createSelector(
       windowBins[windowBins.length - 1].keys.push(...others);
     }
     return windowBins;
-  }
+  },
 );
 
 export const getLinesPlotData = createSelector(
@@ -796,7 +796,7 @@ export const getLinesPlotData = createSelector(
     res,
     plotScale,
     bins,
-    palette
+    palette,
   ) => {
     if (!plotData) return {};
     let coords = [];
@@ -832,7 +832,7 @@ export const getLinesPlotData = createSelector(
     let len = Math.max(
       plotData.axes.x.values.length,
       plotData.axes.y.values.length,
-      plotData.axes.z.values.length
+      plotData.axes.z.values.length,
     );
     let yClamp = Number.NEGATIVE_INFINITY;
     if (plotData.meta.y.meta) {
@@ -865,7 +865,7 @@ export const getLinesPlotData = createSelector(
       let wins = Math.max(
         plotData.axes.x.values[i].length,
         plotData.axes.y.values[i].length,
-        plotData.axes.z.values[i].length
+        plotData.axes.z.values[i].length,
         // plotData.axes.cat.values[i].length
       );
       let zSize = -1;
@@ -943,7 +943,7 @@ export const getLinesPlotData = createSelector(
     }
     let range = [min, max];
     return { coords, range, colors: palette.colors };
-  }
+  },
 );
 
 export const getGridPlotData = createSelector(
@@ -973,7 +973,7 @@ export const getGridPlotData = createSelector(
     bins,
     palette,
     mainData,
-    plotShape
+    plotShape,
   ) => {
     if (!plotData) return {};
     let plotSize = 1300;
@@ -1188,7 +1188,7 @@ export const getGridPlotData = createSelector(
       let wins = Math.max(
         plotData.axes.x.values[index].length,
         plotData.axes.y.values[index].length,
-        plotData.axes.z.values[index].length
+        plotData.axes.z.values[index].length,
         // plotData.axes.cat.values[i].length
       );
       for (let j = 0; j < wins; j++) {
@@ -1302,7 +1302,7 @@ export const getGridPlotData = createSelector(
       visibleFullCats,
       legendSpace,
     };
-  }
+  },
 );
 // const weightedMeanSd = (values, weights, sumWeight, log) => {
 //   if (log){
@@ -1527,13 +1527,13 @@ export const getKitePlotData = createSelector(
         bin.x,
         bin.z,
         bin.zSum,
-        plotData.meta.x.meta.scale == "scaleLog"
+        plotData.meta.x.meta.scale == "scaleLog",
       );
       bin.yWeighted = weightedMeanSd(
         bin.y,
         bin.z,
         bin.zSum,
-        plotData.meta.y.meta.scale == "scaleLog"
+        plotData.meta.y.meta.scale == "scaleLog",
       );
       if (bin.xWeighted.lower) {
         coords[i].x = [
@@ -1572,7 +1572,7 @@ export const getKitePlotData = createSelector(
     });
 
     return { coords, equations, bins, xScale, yScale, colors: palette.colors };
-  }
+  },
 );
 
 export const getTransformEquation = createSelector(
@@ -1591,7 +1591,7 @@ export const getTransformEquation = createSelector(
     let xType = scaleFactor.xScale.type;
     let yType = scaleFactor.yScale.type;
     return { factor, intercept, xType, yType };
-  }
+  },
 );
 // export const getKitePlotData = createSelector(
 //   getMainPlotData,
@@ -1685,7 +1685,7 @@ const getColorByIndex = createSelectorForColorIndex(
   getColorPalette,
   (index, palette) => {
     return palette.colors[index];
-  }
+  },
 );
 
 export const getScatterPlotDataSlice = createSelectorForSliceIndex(
@@ -1695,7 +1695,7 @@ export const getScatterPlotDataSlice = createSelectorForSliceIndex(
   (index, plotData) => {
     plotData = sliceObject(plotData, index);
     return plotData;
-  }
+  },
 );
 
 export const getScatterPlotDataForCategoryIndex =
@@ -1706,7 +1706,7 @@ export const getScatterPlotDataForCategoryIndex =
     (plotData, color, res) => {
       plotData.color = color;
       return plotData;
-    }
+    },
   );
 
 export const getCirclePlotDataForCategoryIndex =
@@ -1729,7 +1729,7 @@ export const getCirclePlotDataForCategoryIndex =
         catData.data = [];
       }
       return catData;
-    }
+    },
   );
 
 export const getSquareBinPlotDataForCategoryIndex =
@@ -1772,7 +1772,7 @@ export const getSquareBinPlotDataForCategoryIndex =
       plotData.data = data;
       plotData.side = side;
       return plotData;
-    }
+    },
   );
 
 const createSelectorForMainPlotCategory = byIdSelectorCreator();
@@ -1782,5 +1782,5 @@ export const getCategoryListForMainPlot = createSelectorForMainPlotCategory(
   (state) => getPlainCategoryListForFieldId(state, getAxisTitle(state, "cat")),
   (list) => {
     return list;
-  }
+  },
 );

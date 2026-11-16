@@ -86,7 +86,7 @@ export const getAllScatterPlotDataBySquareBin = createSelector(
       }
     }
     return { data };
-  }
+  },
 );
 
 export const getOccupiedSquareGrid = createSelector(
@@ -122,7 +122,7 @@ export const getOccupiedSquareGrid = createSelector(
     let range = [min, max];
     let newGrid = immutableUpdate(grid, { data, range });
     return newGrid;
-  }
+  },
 );
 
 export const getScatterPlotDataBySquareBin = createSelector(
@@ -173,7 +173,7 @@ export const getScatterPlotDataBySquareBin = createSelector(
       }
     }
     return { data, grid, squares };
-  }
+  },
 );
 
 export const getSelectedSquareGrid = createSelector(
@@ -202,7 +202,7 @@ export const getSelectedSquareGrid = createSelector(
     });
     let newGrid = immutableUpdate(grid, { data });
     return newGrid;
-  }
+  },
 );
 
 export const getScatterPlotDataBySquareBinByCategory = createSelector(
@@ -224,7 +224,7 @@ export const getScatterPlotDataBySquareBinByCategory = createSelector(
     reducer,
     scale,
     plotScale,
-    catAxis
+    catAxis,
   ) => {
     if (!scatterData) return undefined;
     let zScale = d3[scale]().domain(grid.range).range([0, grid.width]);
@@ -299,12 +299,12 @@ export const getScatterPlotDataBySquareBinByCategory = createSelector(
       data = data.concat(squareArray.sort((a, b) => b.z - a.z));
     });
     return { data, grid, zScale };
-  }
+  },
 );
 
 export const getSquareGridScale = createSelector(
   getScatterPlotDataBySquareBinByCategory,
-  (binnedData) => binnedData.zScale
+  (binnedData) => binnedData.zScale,
 );
 
 export const getBinnedDataByCategoryByAxis = createSelector(
@@ -339,7 +339,7 @@ export const getBinnedDataByCategoryByAxis = createSelector(
     }
     let grid = binnedData.grid;
     return { data, grid };
-  }
+  },
 );
 
 const getAxis = (state, axis) => axis;
@@ -407,5 +407,5 @@ export const getBinnedLinesByCategoryForAxis = createSelector(
       //}
     });
     return { paths, zScale };
-  }
+  },
 );

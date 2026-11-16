@@ -1,5 +1,11 @@
 import { addAllFields, editField } from "./field";
+import { apiUrl, datasetTable } from "./api";
 import { createAction, handleAction, handleActions } from "redux-actions";
+import {
+  fetchColumnOptions,
+  fetchDatasetPage,
+  getDatasetPageData,
+} from "./datasetPage";
 import {
   getDatasetID,
   getHashString,
@@ -17,7 +23,6 @@ import {
 import { qsDefault, queryToStore } from "../querySync";
 
 import { addReferenceFields } from "./reference";
-import { apiUrl } from "./api";
 import { createSelector } from "reselect";
 import deep from "deep-get-set";
 import { editPlot } from "./plot";
@@ -33,7 +38,7 @@ const requestRepository = createAction("REQUEST_REPOSITORY");
 const receiveRepository = createAction(
   "RECEIVE_REPOSITORY",
   (json) => json,
-  () => ({ receivedAt: Date.now() })
+  () => ({ receivedAt: Date.now() }),
 );
 
 const invalidateDataset = createAction("INVALIDATE_DATASET");
@@ -41,7 +46,7 @@ const requestMeta = createAction("REQUEST_META");
 const receiveMeta = createAction(
   "RECEIVE_META",
   (json) => json,
-  () => ({ receivedAt: Date.now() })
+  () => ({ receivedAt: Date.now() }),
 );
 const useStoredMeta = createAction("USE_STORED_META");
 
@@ -65,33 +70,43 @@ export const availableDatasets = handleActions(
       isInitialised: true,
       byId: action.payload.reduce(
         (obj, item) => ((obj[item.id] = item), obj),
-        {}
+        {},
       ),
       allIds: action.payload.map((item) => item.id),
       lastUpdated: action.meta.receivedAt,
     }),
+    REQUEST_DATASET_PAGE: (state, action) =>
+      immutableUpdate(state, { isInitialised: true }),
     INVALIDATE_DATASET: (state, action) => state,
     REQUEST_META: (state, action) => state,
     RECEIVE_META: (state, action) => {
-      if (!state.byId[action.payload.id] && !action.payload.json.error) {
-        let prefix, latest;
-        if (
-          action.payload.json.assembly.prefix &&
-          action.payload.json.assembly.prefix
-        ) {
-          prefix = action.payload.json.assembly.prefix;
-          latest = Object.keys(state.byId).filter(
-            (key) =>
-              state.byId[key].prefix === action.payload.json.assembly.prefix
-          )[0];
-          action.payload.json.latest = state.byId[latest]
-            ? state.byId[latest].revision
-            : latest;
-          action.payload.json.prefix = state.byId[latest]
-            ? state.byId[latest].prefix
-            : prefix;
+      const json = action.payload.json;
+      if (!state.byId[action.payload.id] && !json.error) {
+        if (json.latest !== undefined) {
+          // The server supplies the current revision, as in table mode where byId is empty.
+          if (
+            json.prefix === undefined &&
+            json.assembly &&
+            json.assembly.prefix
+          ) {
+            json.prefix = json.assembly.prefix;
+          }
         } else {
-          action.payload.json.latest = action.payload.json.revision;
+          let prefix, latest;
+          if (json.assembly.prefix && json.assembly.prefix) {
+            prefix = json.assembly.prefix;
+            latest = Object.keys(state.byId).filter(
+              (key) => state.byId[key].prefix === json.assembly.prefix,
+            )[0];
+            json.latest = state.byId[latest]
+              ? state.byId[latest].revision
+              : latest;
+            json.prefix = state.byId[latest]
+              ? state.byId[latest].prefix
+              : prefix;
+          } else {
+            json.latest = json.revision;
+          }
         }
       }
       return immutableUpdate(state, {
@@ -99,7 +114,7 @@ export const availableDatasets = handleActions(
       });
     },
   },
-  defaultState()
+  defaultState(),
 );
 
 export const getRepositoryIsFetching = (state) =>
@@ -114,18 +129,26 @@ export const getAvailableDatasetIds = (state) =>
 export const getAvailableDatasets = (state) =>
   deep(state, "availableDatasets.byId") || [];
 
+// Number of datasets matching the search: the server total in table mode, otherwise the full list.
+export const getResultCount = (state) =>
+  datasetTable
+    ? getDatasetPageData(state).total || 0
+    : getAvailableDatasetIds(state).length;
+
 export const setApiStatus = createAction("SET_API_STATUS");
 export const apiStatus = handleAction(
   "SET_API_STATUS",
   (state, action) => action.payload,
-  true
+  true,
 );
 export const getApiStatus = (state) => state.apiStatus;
 
 export function fetchRepository(searchTerm) {
   return function (dispatch) {
     dispatch(setDatasetIsActive(false));
-    dispatch(requestRepository());
+    if (!datasetTable) {
+      dispatch(requestRepository());
+    }
     let state = store.getState();
     let views = getViews(state);
     let datasetId = getDatasetID(state);
@@ -153,41 +176,57 @@ export function fetchRepository(searchTerm) {
           search: searchTerm,
           ...([views.primary] && { [views.primary]: true }),
           ...(interactive && { interactive: true }),
-        })
+        }),
       );
     }
     dispatch(refreshStore());
 
+    // Sets the dataset or results view from the number of matches and the first match id.
+    const navigate = (count, firstId) => {
+      if (datasetId) {
+        if (!reload) {
+          if (count != 1) {
+            dispatch(
+              updatePathname({}, { dataset: true, [views.primary]: true }),
+            );
+          } else if (firstId != datasetId) {
+            dispatch(
+              updatePathname({ dataset: firstId }, { [views.primary]: true }),
+            );
+          }
+        }
+      } else if (count == 1) {
+        dispatch(
+          updatePathname({ dataset: firstId }, { [views.primary]: true }),
+        );
+      } else {
+        dispatch(updatePathname({}, { dataset: true, [views.primary]: true }));
+      }
+    };
+
+    if (datasetTable) {
+      // Table mode: only the current page is fetched, with column options for the pickers.
+      dispatch(fetchColumnOptions(searchTerm));
+      return dispatch(fetchDatasetPage(searchTerm))
+        .then((json) => {
+          if (json === undefined) return; // superseded by a newer request
+          if (json === null) {
+            dispatch(setApiStatus(false));
+            return;
+          }
+          const first = json.results[0];
+          navigate(json.total, first ? first.id : undefined);
+        })
+        .catch((err) => dispatch(setApiStatus(false)));
+    }
+
     return fetch(apiUrl + "/search/" + searchTerm)
       .then(
         (response) => response.json(),
-        (error) => console.log("An error occured.", error)
+        (error) => console.log("An error occured.", error),
       )
       .then((json) => {
-        if (datasetId) {
-          if (!reload) {
-            if (json.length != 1) {
-              dispatch(
-                updatePathname({}, { dataset: true, [views.primary]: true })
-              );
-            } else if (json[0].id != datasetId) {
-              dispatch(
-                updatePathname(
-                  { dataset: json[0].id },
-                  { [views.primary]: true }
-                )
-              );
-            }
-          }
-        } else if (json.length == 1) {
-          dispatch(
-            updatePathname({ dataset: json[0].id }, { [views.primary]: true })
-          );
-        } else {
-          dispatch(
-            updatePathname({}, { dataset: true, [views.primary]: true })
-          );
-        }
+        navigate(json.length, json.length == 1 ? json[0].id : undefined);
         dispatch(receiveRepository(json));
       })
       .catch((err) => dispatch(setApiStatus(false)));
@@ -220,7 +259,7 @@ export function fetchMeta(id) {
       })
       .catch((err) => {
         dispatch(
-          receiveMeta({ id, json: { error: `dataset ${id} not found` } })
+          receiveMeta({ id, json: { error: `dataset ${id} not found` } }),
         );
       });
   };
@@ -241,7 +280,7 @@ export const staticThreshold = handleAction(
   "SET_STATIC_THRESHOLD",
   (state, action) => action.payload,
   qs.parse((document.location.search || "").replace(/^\?/, ""))
-    .staticThreshold || STATIC_THRESHOLD
+    .staticThreshold || STATIC_THRESHOLD,
 );
 export const getStaticThreshold = (state) => state.staticThreshold;
 
@@ -256,7 +295,7 @@ export const nohitThreshold = handleAction(
   "SET_NOHIT_THRESHOLD",
   (state, action) => action.payload,
   qs.parse((document.location.search || "").replace(/^\?/, ""))
-    .nohitThreshold || NOHIT_THRESHOLD
+    .nohitThreshold || NOHIT_THRESHOLD,
 );
 export const getNohitThreshold = (state) => state.nohitThreshold;
 
@@ -361,14 +400,14 @@ export const setDatasetIsActive = createAction("SET_DATASET_IS_ACTIVE");
 export const datasetIsActive = handleAction(
   "SET_DATASET_IS_ACTIVE",
   (state, action) => action.payload,
-  false
+  false,
 );
 
 export function fetchSearchResults(str) {
   return function (dispatch) {
     fetch(apiUrl + "/search/" + str).then(
       (response) => response.json(),
-      (error) => console.log("An error occured.", error)
+      (error) => console.log("An error occured.", error),
     );
   };
 }
@@ -381,7 +420,7 @@ export const setReloading = createAction("RELOADING");
 export const reloading = handleAction(
   "RELOADING",
   (state, action) => action.payload,
-  false
+  false,
 );
 export const getReloading = (state) => state.reloading;
 

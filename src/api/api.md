@@ -82,10 +82,30 @@ curl "https://example.com/api/v1/search/Caenorhabditis?page=2&size=50"
 
 ### Sorting
 
-Pass `sort` (a top-level dataset field such as `name`, `taxid` or `records`) and optionally `order` (`asc` default, or `desc`) to sort the JSON response. Without `sort`, results are ordered by `id`. Records without a value for the field sort last in either direction, and ties fall back to `id`, so paging stays stable. Fields holding objects, such as `assembly`, cannot be sorted.
+Pass `sort` and optionally `order` (`asc` default, or `desc`) to sort the JSON response. `sort` is a table column id, such as `taxon`, `accession`, `gc`, `ratio`, `reads`, `-hits-count`, `Mammalia-hits-n50` or `-busco-string`. Without `sort`, results are ordered by `id`. Records without a value sort last in either direction, and ties fall back to `id`, so paging stays stable. Unknown column ids are ignored.
 
 ```
-curl "https://example.com/api/v1/search/Caenorhabditis?sort=records&order=desc&page=1&size=20"
+curl "https://example.com/api/v1/search/Caenorhabditis?sort=-hits-count&order=desc&page=1&size=20"
+```
+
+### Filtering
+
+Pass `filter[columnId]=prefix` to keep only records whose displayed value for that column starts with `prefix`. Matching ignores case and thousands separators, so `filter[-hits-count]=1234` matches 1,234. Several filters must all match. Unknown column ids and empty values are ignored. Filters apply to the JSON, `display=ids` and `display=csv` responses.
+
+```
+curl "https://example.com/api/v1/search/Caenorhabditis?filter[taxon]=cael&page=1&size=20"
+```
+
+### Column options
+
+`GET /search/{term}/columns` returns `hitTaxa` and `buscoLineages` for all datasets matching the term, for the dataset table column pickers.
+
+### Ids and CSV
+
+With `display=ids`, the response is a JSON array of the matching dataset ids, after filters and sort. With `display=csv`, the response is a CSV file of the matching rows for the columns listed in `columns` (comma-separated column ids, default `id,taxon,accession`). The header row uses the column ids.
+
+```
+curl "https://example.com/api/v1/search/Caenorhabditis?display=csv&columns=id,taxon,-hits-count&sort=taxon"
 ```
 
 With `display=tsv`, paging returns the requested slice of lines and sets the `x-total-count` header to the total number of lines.

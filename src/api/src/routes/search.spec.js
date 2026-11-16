@@ -378,12 +378,15 @@ describe("paging", () => {
       { id: "a", records: 9 },
       { id: "b", records: 5 },
     ];
-    expect(
-      search.sortRecords(items, "records", "asc").map((r) => r.id),
-    ).toEqual(["b", "c", "a"]);
-    expect(
-      search.sortRecords(items, "records", "desc").map((r) => r.id),
-    ).toEqual(["a", "b", "c"]);
+    const records = (r) => r.records;
+    expect(search.sortRecords(items, records, "asc").map((r) => r.id)).toEqual([
+      "b",
+      "c",
+      "a",
+    ]);
+    expect(search.sortRecords(items, records, "desc").map((r) => r.id)).toEqual(
+      ["a", "b", "c"],
+    );
   });
 
   it("places records without the sort field last in either direction", () => {
@@ -392,12 +395,13 @@ describe("paging", () => {
       { id: "b", name: "Bee" },
       { id: "c", name: "Ay" },
     ];
-    expect(search.sortRecords(items, "name", "asc").map((r) => r.id)).toEqual([
+    const name = (r) => r.name;
+    expect(search.sortRecords(items, name, "asc").map((r) => r.id)).toEqual([
       "c",
       "b",
       "a",
     ]);
-    expect(search.sortRecords(items, "name", "desc").map((r) => r.id)).toEqual([
+    expect(search.sortRecords(items, name, "desc").map((r) => r.id)).toEqual([
       "b",
       "c",
       "a",
@@ -410,11 +414,11 @@ describe("paging", () => {
       { id: "a", assembly: { level: "y" } },
     ];
     expect(
-      search.sortRecords(items, "assembly", "asc").map((r) => r.id),
+      search.sortRecords(items, (r) => r.assembly, "asc").map((r) => r.id),
     ).toEqual(["a", "b"]);
   });
 
-  it("uses id order when no sort field is given", () => {
+  it("uses id order when no sort function is given", () => {
     const items = [{ id: "b" }, { id: "a" }];
     expect(
       search.sortRecords(items, undefined, "desc").map((r) => r.id),
@@ -431,6 +435,105 @@ describe("paging", () => {
       field: "records",
       order: "desc",
     });
+  });
+});
+
+describe("table columns", () => {
+  const columns = require("../functions/table-columns");
+  const record = {
+    id: "ddd001",
+    taxon_name: "Homo sapiens",
+    summaryStats: {
+      hits: {
+        total: { count: 12, span: 3000, n50: 0 },
+        Mammalia: { count: 7 },
+      },
+      busco: {
+        mammalia_odb10: { c: 0.95, string: "C:95%", lineage: "mammalia_odb10" },
+      },
+      baseComposition: { gc: 0.4123, at: 0.5, n: 0 },
+      stats: { noHit: 0.25, target: 0.7, spanOverN50: 4 },
+      taxonomy: { lineage: "Mammalia", taxid: 9606 },
+      readMapping: { a: {}, b: {} },
+    },
+  };
+  const other = { id: "ddd002", taxon_name: "Mus", summaryStats: {} };
+
+  it("resolves fixed, hits and busco column ids", () => {
+    expect(columns.resolveColumn("taxon").raw(record)).toBe("Homo sapiens");
+    expect(columns.resolveColumn("-hits-count").raw(record)).toBe(12);
+    expect(columns.resolveColumn("Mammalia-hits-count").raw(record)).toBe(7);
+    expect(columns.resolveColumn("-busco-c").raw(record)).toBe(0.95);
+    expect(columns.resolveColumn("-busco-lineage").raw(record)).toBe(
+      "mammalia_odb10",
+    );
+    expect(columns.resolveColumn("-hits-bogus")).toBeUndefined();
+    expect(columns.resolveColumn("nope")).toBeUndefined();
+  });
+
+  it("treats falsy values as missing, as the viewer does", () => {
+    expect(columns.resolveColumn("-hits-n50").raw(record)).toBe("");
+    expect(columns.resolveColumn("n").raw(record)).toBe("");
+  });
+
+  it("mirrors the viewer's derived values and display text", () => {
+    expect(columns.resolveColumn("gc").text(record)).toBe("41.2");
+    expect(columns.resolveColumn("nohit").text(record)).toBe("25.0");
+    expect(columns.resolveColumn("ratio").raw(record)).toBe(0.25);
+    expect(columns.resolveColumn("ratio").text(record)).toBe("0.25");
+    expect(columns.resolveColumn("reads").raw(record)).toBe(2);
+    expect(columns.resolveColumn("-busco-lineage").text(other)).toBe("");
+  });
+
+  it("filters on the start of the display text, ignoring case and commas", () => {
+    const records = [record, other];
+    const byTaxon = columns.parseFilters({ taxon: "HOMO" });
+    expect(columns.applyFilters(records, byTaxon).map((r) => r.id)).toEqual([
+      "ddd001",
+    ]);
+    const byCount = columns.parseFilters({ "-hits-count": "1,2" });
+    expect(columns.applyFilters(records, byCount).map((r) => r.id)).toEqual([
+      "ddd001",
+    ]);
+    expect(columns.applyFilters(records, byCount.slice(0, 0))).toEqual(records);
+  });
+
+  it("ignores unknown filter columns and empty values", () => {
+    expect(columns.parseFilters({ nope: "x", taxon: "" })).toEqual([]);
+    expect(columns.parseFilters(undefined)).toEqual([]);
+  });
+
+  it("builds CSV rows from column ids, quoting cells as needed", () => {
+    const csv = columns.toCsv(
+      [record, { id: "a,b", taxon_name: 'say "hi"', summaryStats: {} }],
+      ["id", "taxon"],
+    );
+    expect(csv).toBe('id,taxon\nddd001,Homo sapiens\n"a,b","say ""hi"""\n');
+  });
+
+  it("falls back to default CSV columns when none are valid", () => {
+    expect(columns.parseColumnList("nope")).toEqual([
+      "id",
+      "taxon",
+      "accession",
+    ]);
+    expect(columns.parseColumnList("taxon,gc")).toEqual(["taxon", "gc"]);
+  });
+
+  it("lists hit taxa and busco lineages, sorted, excluding total", () => {
+    const options = columns.columnOptions([record, other]);
+    expect(options.hitTaxa).toEqual(["Mammalia"]);
+    expect(options.buscoLineages).toEqual(["mammalia_odb10"]);
+  });
+
+  it("sorts by a column's raw value, with missing values last", () => {
+    const rows = [other, record];
+    const sorted = search.sortRecords(
+      rows,
+      columns.resolveColumn("-hits-count").raw,
+      "asc",
+    );
+    expect(sorted.map((r) => r.id)).toEqual(["ddd001", "ddd002"]);
   });
 });
 

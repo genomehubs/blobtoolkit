@@ -5,9 +5,11 @@ const logError = require("../functions/logger").logError;
 const dataDirectory = config.filePath;
 const readYaml = require("../functions/io").readYaml;
 const readYamlSync = require("../functions/io").readYamlSync;
+const fileExists = require("../functions/io").fileExists;
 const goat = require("../functions/goat");
+const tableColumns = require("../functions/table-columns");
 
-const SEARCH_SCHEMA_VERSION = 1;
+const SEARCH_SCHEMA_VERSION = 2;
 const UPDATE_MODES = ["fast", "mtime", "force", "live"];
 const TARGETS_CHECK_MS = 60 * 60 * 1000;
 const DEFAULT_PAGE_SIZE = 20;
@@ -133,9 +135,29 @@ const applyLineage = (dsMeta, lookup) => {
   }
 };
 
+const missingPlotFields = async (dir, rawMeta) => {
+  let plot = rawMeta && rawMeta.plot ? Object.values(rawMeta.plot) : [];
+  let missing = [];
+  for (let id of plot) {
+    if (typeof id != "string") continue;
+    let base = `${dir}/${id}.json`;
+    if (!(await fileExists(base)) && !(await fileExists(`${base}.gz`))) {
+      missing.push(id);
+    }
+  }
+  return missing;
+};
+
 const buildSearchCache = async (dir, file, lookups) => {
-  let dsMeta = parseMeta(await readYaml(`${dir}/${file}`));
+  let rawMeta = await readYaml(`${dir}/${file}`);
+  let dsMeta = parseMeta(rawMeta);
   dsMeta.id = dir.replace(/^.+\//, "");
+  let missing = await missingPlotFields(dir, rawMeta);
+  if (missing.length > 0) {
+    logError({
+      message: `${dsMeta.id}: missing plot field files: ${missing.join(", ")}`,
+    });
+  }
   if (!dsMeta.hasOwnProperty("revision")) {
     let [prefix, revision] = dsMeta.id.split(".");
     dsMeta.revision = revision ? revision * 1 : 0;
@@ -161,6 +183,7 @@ const buildSearchCache = async (dir, file, lookups) => {
   return {
     schema_version: SEARCH_SCHEMA_VERSION,
     summary_checked,
+    missing_plot: missing,
     record: JSON.parse(JSON.stringify(dsMeta)),
   };
 };
@@ -201,6 +224,7 @@ const readMeta = async (dir, md, mode, lookups) => {
         cache = await buildSearchCache(dir, file, lookups);
         await writeSearchCache(dir, cache);
       }
+      if (cache.missing_plot.length > 0) continue;
       let dsMeta = cache.record;
       if (!versions[dsMeta.prefix]) {
         versions[dsMeta.prefix] = {};
@@ -552,6 +576,15 @@ const autocomplete = (term) => {
   return results;
 };
 
+// Revision of the current version of a dataset's accession prefix, or undefined when the id is not indexed.
+const latestRevisionFor = (id) => {
+  const record = meta.find((m) => m.id === id);
+  if (!record) return undefined;
+  if (!record.prefix) return record.revision;
+  const current = meta.find((m) => m.prefix === record.prefix && isCurrent(m));
+  return current ? current.revision : undefined;
+};
+
 const search = (term) => {
   let arr = [];
   try {
@@ -703,21 +736,22 @@ const getAutocompleteByTerm = async (req, res) => {
 const compareIds = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const sortById = (records) => records.slice().sort(compareIds);
 
-// Sorts by a top-level scalar field. Records without a value sort last in either
-// order, and ties fall back to id so paging stays stable.
-const sortRecords = (records, field, order) => {
-  if (!field) return sortById(records);
+// Sorts by a scalar value from valueOf(record). Records without a value sort last
+// in either order, and ties fall back to id so paging stays stable.
+const sortRecords = (records, valueOf, order) => {
+  if (!valueOf) return sortById(records);
   const direction = order === "desc" ? -1 : 1;
-  const valueOf = (record) => {
-    if (!Object.prototype.hasOwnProperty.call(record, field)) return undefined;
-    const value = record[field];
+  // Empty strings are the viewer's missing marker, so they sort last too.
+  const scalar = (record) => {
+    const value = valueOf(record);
+    if (value === "") return undefined;
     return ["string", "number", "boolean"].includes(typeof value)
       ? value
       : undefined;
   };
   return records.slice().sort((a, b) => {
-    const va = valueOf(a);
-    const vb = valueOf(b);
+    const va = scalar(a);
+    const vb = scalar(b);
     if (va === undefined || vb === undefined) {
       if (va === vb) return compareIds(a, b);
       return va === undefined ? 1 : -1;
@@ -759,8 +793,39 @@ const paginate = (items, { page, size }) => ({
   results: items.slice((page - 1) * size, page * size),
 });
 
+// Filtered and sorted records for a term. sort is a table column id, and
+// filter[columnId] is a display-text prefix. Both are ignored when unknown.
+const selectRecords = (term, query) => {
+  const filtered = tableColumns.applyFilters(
+    search(term),
+    tableColumns.parseFilters(query.filter),
+  );
+  const sort = parseSort(query);
+  const column = sort.field
+    ? tableColumns.resolveColumn(sort.field)
+    : undefined;
+  return sortRecords(filtered, column && column.raw, sort.order);
+};
+
 const getSearchByTerm = async (req, res) => {
   let paging = parsePaging(req.query || {});
+  if (req.query && req.query.display == "ids") {
+    res.setHeader("content-type", "application/json");
+    return res.json(selectRecords(req.params.term, req.query).map((r) => r.id));
+  }
+  if (req.query && req.query.display == "csv") {
+    res.setHeader("content-type", "text/csv");
+    res.setHeader(
+      "content-disposition",
+      `attachment; filename=${req.params.term}.csv`,
+    );
+    return res.send(
+      tableColumns.toCsv(
+        selectRecords(req.params.term, req.query),
+        tableColumns.parseColumnList(req.query.columns),
+      ),
+    );
+  }
   if (req.query && req.query.display == "tsv") {
     res.setHeader("content-type", "text/tab-separated-values");
     today = new Date().toISOString().substring(0, 10).replace(/-/g, "");
@@ -779,10 +844,15 @@ const getSearchByTerm = async (req, res) => {
     res.send(lines.map((line) => `${line}\n`).join(""));
   } else {
     res.setHeader("content-type", "application/json");
-    let sort = parseSort(req.query);
-    let results = sortRecords(search(req.params.term), sort.field, sort.order);
+    let results = selectRecords(req.params.term, req.query || {});
     res.json(paging ? paginate(results, paging) : results);
   }
+};
+
+// Hit taxa and BUSCO lineages for the column pickers, across every match for the term.
+const getSearchColumns = async (req, res) => {
+  res.setHeader("content-type", "application/json");
+  res.json(tableColumns.columnOptions(search(req.params.term)));
 };
 const getSearchReload = async (req, res) => {
   res.setHeader("content-type", "application/json");
@@ -798,6 +868,7 @@ const getSearchReload = async (req, res) => {
 
 module.exports = {
   loadIndex,
+  latestRevisionFor,
   readMeta,
   listMeta,
   generateIndex,
@@ -823,6 +894,7 @@ module.exports = {
   total: () => meta.length,
   getAutocompleteByTerm,
   getSearchByTerm,
+  getSearchColumns,
   getSearchReload,
   getSearchTreeAvailable,
   getSearchTreeTargets,

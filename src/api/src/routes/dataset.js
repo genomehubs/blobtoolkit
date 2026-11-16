@@ -1,5 +1,6 @@
 const Dataset = require("../models/dataset");
 const utils = require("../shared/functions/utils");
+const { latestRevisionFor } = require("./search");
 
 const getDatasetById = async (req, res) => {
   res.setHeader("content-type", "application/json");
@@ -11,7 +12,8 @@ const getDatasetById = async (req, res) => {
     logError({ req, message });
   }
   if (meta.hasOwnProperty("id")) {
-    res.json(meta);
+    const latest = latestRevisionFor(meta.id);
+    res.json(latest === undefined ? meta : { ...meta, latest });
   } else {
     res.sendStatus(404);
   }
@@ -29,7 +31,7 @@ const getDatasetByIdKey = async (req, res) => {
         meta.fields,
         "_id",
         req.params.key,
-        ["_data", "_children"]
+        ["_data", "_children"],
       )[0];
       if (result) {
         res.json(result);
@@ -56,7 +58,7 @@ const getDatasetByIdKeySubkey = async (req, res) => {
         meta.fields,
         "_id",
         req.params.key,
-        ["_data", "_children"]
+        ["_data", "_children"],
       )[0];
       if (result) {
         json = result;

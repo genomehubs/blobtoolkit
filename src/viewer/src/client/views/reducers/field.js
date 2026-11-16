@@ -29,7 +29,7 @@ export const addTopLevelFields = createAction("ADD_TOP_LEVEL_FIELDS");
 export const topLevelFields = handleAction(
   "ADD_TOP_LEVEL_FIELDS",
   (state, action) => action.payload,
-  []
+  [],
 );
 export const getTopLevelFields = (state) => state.topLevelFields;
 
@@ -69,7 +69,7 @@ export const fields = handleActions(
       return immutableUpdate(state, {
         byId: {
           [id]: Object.assign(
-            ...fields.map((f) => ({ [f]: action.payload[f] }))
+            ...fields.map((f) => ({ [f]: action.payload[f] })),
           ),
         },
       });
@@ -78,7 +78,7 @@ export const fields = handleActions(
   {
     byId: {},
     allIds: [],
-  }
+  },
 );
 
 function variableRawDataToCategory(data, meta) {
@@ -224,7 +224,7 @@ export const getMetaDataForField = (state, fieldId) =>
 export const clampDomain = (max, clamp, bins) => {
   let min = Math.pow(
     10,
-    Math.log10(clamp) - 2 * (Math.log10(max / clamp) / (bins - 2))
+    Math.log10(clamp) - 2 * (Math.log10(max / clamp) / (bins - 2)),
   );
   return [min, max];
 };
@@ -243,8 +243,8 @@ export const getDetailsForFieldId = createSelectorForFieldId(
     let active = meta.hasOwnProperty("active")
       ? meta.active
       : meta.hasOwnProperty("preload")
-      ? meta.preload
-      : false;
+        ? meta.preload
+        : false;
     let domain = limit;
     xScale.range([0, 400]);
     if (meta.clamp && meta.clamp > limit[0]) {
@@ -262,7 +262,7 @@ export const getDetailsForFieldId = createSelectorForFieldId(
     obj.type = meta.type;
     obj.clonedFrom = meta.clonedFrom;
     return obj;
-  }
+  },
 );
 
 const requestRawData = createAction("REQUEST_RAW_DATA");
@@ -282,7 +282,7 @@ export const rawData = handleActions(
   {
     byId: {},
     allIds: [],
-  }
+  },
 );
 
 export function fetchRawData(id) {
@@ -298,7 +298,7 @@ export function fetchRawData(id) {
     return fetch(`${apiUrl}/field/${datasetId}/${id}`)
       .then(
         (response) => response.json(),
-        (error) => console.log("An error occured.", error)
+        (error) => console.log("An error occured.", error),
       )
       .then((json) => {
         if (!json.keys || json.keys.length == 0) {
@@ -376,7 +376,7 @@ export const addAllFields = (dispatch, fields, flag, meta, plot, promises) => {
       id: "selection",
       type: "selection",
       children: [],
-    })
+    }),
   );
   dispatch(
     addFilter({
@@ -384,14 +384,14 @@ export const addAllFields = (dispatch, fields, flag, meta, plot, promises) => {
       type: "selection",
       list: [],
       invert: false,
-    })
+    }),
   );
   dispatch(receiveRawData({ id: "selection", json: { values: [] } }));
   dispatch(
     addField({
       id: "userDefined",
       children: [{ id: "selection", active: false }],
-    })
+    }),
   );
   fields.forEach((field) => {
     let status;
@@ -404,7 +404,7 @@ export const addAllFields = (dispatch, fields, flag, meta, plot, promises) => {
       });
     }
     let params = ["Min", "Max", "Inv", "Keys", "Active"].map(
-      (x) => field.id + "--" + x
+      (x) => field.id + "--" + x,
     );
     if (field.id != "selection" && params.some((p) => getQueryValue(p))) {
       field.active = true;
@@ -413,7 +413,7 @@ export const addAllFields = (dispatch, fields, flag, meta, plot, promises) => {
     dispatch(addField(field));
     if (field.children) {
       promises.concat(
-        addAllFields(dispatch, field.children, false, field, plot, promises)
+        addAllFields(dispatch, field.children, false, field, plot, promises),
       );
     } else {
       if (field.type == "variable") {
@@ -433,7 +433,7 @@ export const addAllFields = (dispatch, fields, flag, meta, plot, promises) => {
             type: "category",
             toggled: Array.from(Array(10).keys()).map((i) => false),
             keys: [],
-          })
+          }),
         );
       }
       if (!isStatic) {
@@ -444,7 +444,7 @@ export const addAllFields = (dispatch, fields, flag, meta, plot, promises) => {
     }
     if (field.data) {
       promises.concat(
-        addAllFields(dispatch, field.data, false, field, plot, promises)
+        addAllFields(dispatch, field.data, false, field, plot, promises),
       );
     }
     if (status) {
@@ -483,7 +483,7 @@ export const getFieldHierarchy = createSelector(
           obj.hasRecords = false;
         }
         let children = (fields[id].children || []).concat(
-          fields[id].data || []
+          fields[id].data || [],
         );
         if (children.length > 0) {
           obj.children = processFields(children, fields);
@@ -494,7 +494,7 @@ export const getFieldHierarchy = createSelector(
     }
     let hierarchy = processFields(list, fields);
     return hierarchy;
-  }
+  },
 );
 
 // const getFieldRawData = (state, props) => {
@@ -518,7 +518,7 @@ export const getRawDataForFieldId = createRawDataSelectorForFieldId(
   getRawDataForField,
   (rawData) => {
     return rawData;
-  }
+  },
 );
 
 const createBinSelectorForFieldId = byIdSelectorCreator();
@@ -527,7 +527,7 @@ export const histogram = (
   scale,
   thresholds,
   data,
-  clamp = Number.NEGATIVE_INFINITY
+  clamp = Number.NEGATIVE_INFINITY,
 ) => {
   thresholds.push(Number.POSITIVE_INFINITY);
   let len = thresholds.length;
@@ -561,7 +561,7 @@ export const getOtherLimit = createSelector(
       otherLimit = parsed.otherLimit;
     }
     return otherLimit;
-  }
+  },
 );
 
 export const getBinsForFieldId = createBinSelectorForFieldId(
@@ -662,12 +662,12 @@ export const getBinsForFieldId = createBinSelectorForFieldId(
     }
     // set filter using this info
     return bins;
-  }
+  },
 );
 
 export const getBinsForCat = createSelector(
   (state) => getBinsForFieldId(state, getCatAxis(state)),
-  (bins) => bins
+  (bins) => bins,
 );
 
 const createBarSelectorForFieldId = byIdSelectorCreator();
@@ -714,7 +714,7 @@ export const getBarsForFieldId = createBarSelectorForFieldId(
       });
     });
     return bars;
-  }
+  },
 );
 
 const createPreviewDataSelectorForFieldId = byIdSelectorCreator();
@@ -730,7 +730,7 @@ export const getPreviewDataForFieldId = createPreviewDataSelectorForFieldId(
       return d.length;
     });
     return { bins, bars, details, max };
-  }
+  },
 );
 
 export const getAllActiveFields = createSelector(getFields, (fields) => {

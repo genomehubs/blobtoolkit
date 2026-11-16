@@ -13,6 +13,7 @@ import { getStaticFields } from "./dataset";
 import history from "./history";
 import { loadDataset } from "./repository";
 import qs from "qs";
+import { setDatasetFiltered } from "./datasetPage";
 import store from "../store";
 
 const basename = BASENAME || "";
@@ -23,7 +24,7 @@ export const pathname = handleAction(
   (state, action) => action.payload,
   document.location.pathname
     .replace(new RegExp("^" + basename), "")
-    .replace("notfound", "") || ""
+    .replace("notfound", "") || "",
 );
 export const getPathname = (state) => {
   return state.pathname;
@@ -82,13 +83,13 @@ export const getStatic = createSelector(getViews, (views) => views.static);
 
 export const getInteractive = createSelector(
   getViews,
-  (views) => views.interactive
+  (views) => views.interactive,
 );
 
 export const getDatasetID = createSelector(getViews, (views) => views.dataset);
 
 export const getSearchTerm = createSelector(getViews, (views) =>
-  decodeURI(views.search)
+  decodeURI(views.search),
 );
 
 export const viewsToPathname = (views) => {
@@ -129,6 +130,7 @@ export const updatePathname = (update = {}, remove = {}) => {
         dispatch(setDatasetPage(0));
         // dispatch(setDatasetPageSize(10))
         dispatch(setDatasetSorted([]));
+        dispatch(setDatasetFiltered([]));
       }
       newViews[key] = update[key];
       if (key != "dataset" && key != "static" && options.indexOf(key) != -1) {
@@ -148,7 +150,7 @@ export const updatePathname = (update = {}, remove = {}) => {
       history.push({ pathname, hash, search });
       if (getAnalytics(state)) {
         trackPage(
-          pathname + (search ? `?${search}` : "") + (hash ? `#${hash}` : "")
+          pathname + (search ? `?${search}` : "") + (hash ? `#${hash}` : ""),
         );
       }
       dispatch(setPathname(pathname));
@@ -171,7 +173,7 @@ export const toggleStatic = (view, datasetId, isStatic) => {
       dispatch(loadDataset(datasetId));
     } else {
       dispatch(
-        updatePathname({ [view]: true, static: true }, { interactive: true })
+        updatePathname({ [view]: true, static: true }, { interactive: true }),
       );
     }
   };
@@ -181,19 +183,19 @@ export const setQueryString = createAction("SET_QUERY_STRING");
 export const queryString = handleAction(
   "SET_QUERY_STRING",
   (state, action) => action.payload,
-  (document.location.search || "").replace("?", "")
+  (document.location.search || "").replace("?", ""),
 );
 export const getQueryString = (state) => state.queryString || "";
 
 export const getParsedQueryString = createSelector(getQueryString, (str) =>
-  qs.parse(str)
+  qs.parse(str),
 );
 
 export const setHashString = createAction("SET_HASH_VALUE");
 export const hashString = handleAction(
   "SET_HASH_VALUE",
   (state, action) => action.payload,
-  (document.location.hash || "").replace("#", "")
+  (document.location.hash || "").replace("#", ""),
 );
 export const getHashString = (state) => state.hashString || "";
 
@@ -239,7 +241,7 @@ window.onpopstate = (e) => {
   let str = document.location.search.replace(/^\?/, "");
   let values = qs.parse(str);
   store.dispatch(
-    queryToStore({ values, searchReplace: true, currentQuery, action: "POP" })
+    queryToStore({ values, searchReplace: true, currentQuery, action: "POP" }),
   );
   store.dispatch(setQueryString(str));
 };
@@ -259,7 +261,7 @@ export const getQueryValue = createSelector(
   parseQueryString,
   (id, parsed) => {
     return parsed[id] || "";
-  }
+  },
 );
 
 export const locationReducers = {

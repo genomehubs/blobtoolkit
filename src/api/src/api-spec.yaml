@@ -308,8 +308,10 @@ paths:
       description: >-
         Returns datasets matching a search term. Without page or size the response
         is an array of all matches. With page or size the response is a paged object.
-        Results are sorted by id unless sort is given. With sort, results are ordered
-        by that top-level field (records without a value come last) with id as the tie-breaker.
+        Results are sorted by id unless sort is given. sort and filter use table column
+        ids, so the table can page, sort and filter on the server. display=ids returns
+        the matching ids only, and display=csv returns the matching rows as CSV for the
+        given columns. Both apply filter and sort.
       operationId: getSearchByTerm
       parameters:
         - $ref: "#/components/parameters/termParam"
@@ -317,6 +319,8 @@ paths:
         - $ref: "#/components/parameters/sizeParam"
         - $ref: "#/components/parameters/sortParam"
         - $ref: "#/components/parameters/orderParam"
+        - $ref: "#/components/parameters/filterParam"
+        - $ref: "#/components/parameters/columnsParam"
       responses:
         200:
           description: An array of Datasets, or a paged object when page or size is given
@@ -328,6 +332,33 @@ paths:
                     items:
                       $ref: "#/components/schemas/Dataset"
                   - $ref: "#/components/schemas/PagedDatasets"
+      x-eov-operation-handler: routes/search
+  /search/{term}/columns:
+    get:
+      tags:
+        - Search
+      description: >-
+        Returns the hit taxa and BUSCO lineages across every dataset matching a search term,
+        for the dataset table column pickers.
+      operationId: getSearchColumns
+      parameters:
+        - $ref: "#/components/parameters/termParam"
+      responses:
+        200:
+          description: Hit taxa and BUSCO lineages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hitTaxa:
+                    type: array
+                    items:
+                      type: string
+                  buscoLineages:
+                    type: array
+                    items:
+                      type: string
       x-eov-operation-handler: routes/search
   /search/reload/{key}:
     get:
@@ -752,11 +783,37 @@ components:
     sortParam:
       name: sort
       in: query
-      description: Top-level dataset field to sort by, e.g. name, taxid, records. Fields holding objects are not sortable.
+      description: >-
+        Table column id to sort by, e.g. taxon, accession, gc, ratio, reads, -hits-count,
+        Mammalia-hits-n50 or -busco-string. Records without a value sort last. Unknown ids are ignored.
       required: false
       schema:
         type: string
-        pattern: "^[A-Za-z_][A-Za-z0-9_]*$"
+        maxLength: 200
+    filterParam:
+      name: filter
+      in: query
+      description: >-
+        Prefix filters by table column id, written as filter[columnId]=prefix. Matching ignores
+        case and thousands separators. Several filters must all match. Unknown ids and empty values are ignored.
+      required: false
+      style: deepObject
+      explode: true
+      schema:
+        type: object
+        additionalProperties:
+          type: string
+          maxLength: 200
+    columnsParam:
+      name: columns
+      in: query
+      description: >-
+        Comma-separated table column ids for display=csv. The CSV header is the column ids.
+        Defaults to id, taxon and accession.
+      required: false
+      schema:
+        type: string
+        maxLength: 2000
     orderParam:
       name: order
       in: query

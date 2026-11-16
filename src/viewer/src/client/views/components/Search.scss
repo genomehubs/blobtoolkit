@@ -36,7 +36,8 @@ ul.autocomplete {
     cursor:pointer;
   }
 
-  li:hover {
+  li:hover,
+  li.active {
     background-color: $shadeColor;
   }
 }

@@ -97,7 +97,7 @@ export const getSelectedScatterPlotDataByCategory = createSelector(
       }
     }
     return { byCat, selByCat, selAll, zAxis, bins, catKeys };
-  }
+  },
 );
 
 export const getSummary = createSelector(
@@ -165,7 +165,7 @@ export const getSummary = createSelector(
       other,
       reducer: reducer.id,
     };
-  }
+  },
 );
 
 const getSpan = createSelector(getSelectedDatasetMeta, (meta) => {
@@ -178,7 +178,7 @@ export const getRecordCount = createSelector(getSelectedDatasetMeta, (meta) => {
 
 export const getRawDataForLength = createSelector(
   (state) => getRawDataForFieldId(state, "length"),
-  (data) => data
+  (data) => data,
 );
 const getGreatestX = createSelector(getRawDataForLength, (data) => {
   let max = -1;
@@ -205,7 +205,7 @@ export const getReferenceSummaries = createSelector(
       }
     });
     return datasets;
-  }
+  },
 );
 
 export const getReferenceKites = createSelector(
@@ -261,7 +261,7 @@ export const getReferenceKites = createSelector(
       }
     });
     return { ids, coords };
-  }
+  },
 );
 
 export const getCumulative = createSelector(
@@ -293,7 +293,7 @@ export const getCumulative = createSelector(
       });
     }
     return { values, zAxis };
-  }
+  },
 );
 
 export const getReferenceLengths = createSelector(
@@ -327,7 +327,7 @@ export const getReferenceLengths = createSelector(
       }
     });
     return { datasets, maxCount, maxSpan };
-  }
+  },
 );
 
 export const cumulativeCurves = createSelector(
@@ -351,7 +351,7 @@ export const cumulativeCurves = createSelector(
     maxCount,
     maxSpan,
     refs,
-    showReference
+    showReference,
   ) => {
     if (!cumulative) return false;
     let values = cumulative.values;
@@ -430,7 +430,7 @@ export const cumulativeCurves = createSelector(
       });
     }
     return { values, paths, zAxis, palette, records, span, referenceIds };
-  }
+  },
 );
 
 export const getBuscoSets = createSelector(getSelectedDatasetMeta, (meta) => {
@@ -532,7 +532,7 @@ export const getBuscoData = createSelectorForBuscoId(
       ",n:" +
       total;
     return { total, scores, selections, records, fractions, string, ids };
-  }
+  },
 );
 
 export const getAllBuscoData = createSelector(
@@ -565,7 +565,7 @@ export const getAllBuscoData = createSelector(
         data[set] = other[i];
       });
     return data;
-  }
+  },
 );
 
 export const getAllBuscoCSV = createSelector(getAllBuscoData, (all) => {
@@ -621,7 +621,7 @@ export const getBuscoPaths = createSelectorForBuscoId(
       outerRadius: rScale(1),
     });
     return paths;
-  }
+  },
 );
 
 export const getStaticBuscoPaths = createSelector(
@@ -660,7 +660,7 @@ export const getStaticBuscoPaths = createSelector(
       });
     });
     return allPaths;
-  }
+  },
 );
 
 export const getStaticBuscoCSV = createSelector(
@@ -689,7 +689,7 @@ export const getStaticBuscoCSV = createSelector(
       data.push(values);
     });
     return data;
-  }
+  },
 );
 
 const mean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -774,7 +774,7 @@ export const getCircular = createSelector(
     aun.relative = aun.raw / arr[0].z;
     aun.adj_relative = aun.adj / arr[0].z;
     return { values, composition, aun, xAxis, zAxis };
-  }
+  },
 );
 
 export const circularCurves = createSelector(
@@ -804,7 +804,7 @@ export const circularCurves = createSelector(
     summary,
     scaleTo,
     plotText,
-    meta
+    meta,
   ) => {
     if (!circular) return false;
     let invert = origin == "center";
@@ -832,7 +832,7 @@ export const circularCurves = createSelector(
       circumference = Math.max(
         summary.values.reduced.all,
         circumference,
-        sum[999]
+        sum[999],
       );
       radius = Math.max(radius, max);
     }
@@ -860,7 +860,7 @@ export const circularCurves = createSelector(
     paths.nXnum = d3RadialLine()(
       [[cScale(0), lScale(nXnum[nXnum.length - 1])]]
         .concat(nXnum.map((n, i) => [cScale(i), lScale(n)]))
-        .concat(nXnum.map((n, i) => [cScale(999 - i), lScale(1)]))
+        .concat(nXnum.map((n, i) => [cScale(999 - i), lScale(1)])),
     );
     pathProps.nXnum = {
       fill: "#dddddd", //palette.colors[8],
@@ -868,7 +868,7 @@ export const circularCurves = createSelector(
     };
     for (let count = 10; count < 10000000; count *= 10) {
       paths["nXnumTick_" + count] = d3RadialLine()(
-        nXnum.map((n, i) => [cScale(i), lScale(count)])
+        nXnum.map((n, i) => [cScale(i), lScale(count)]),
       );
       pathProps["nXnumTick_" + count] = {
         fill: "none",
@@ -879,7 +879,7 @@ export const circularCurves = createSelector(
     paths.nXlen = d3RadialLine()(
       [[cScale(0), rScale(min)]]
         .concat(nXlen.map((n, i) => [cScale(i), rScale(n)]))
-        .concat(nXlen.map((n, i) => [cScale(999 - i), rScale(min)]))
+        .concat(nXlen.map((n, i) => [cScale(999 - i), rScale(min)])),
     );
     pathProps.nXlen = { fill: "#999999", stroke: "#999999" };
     paths.longest = d3Arc()({
@@ -919,22 +919,22 @@ export const circularCurves = createSelector(
       [[cScale(0), oScale(1)]]
         .concat(gc.map((n, i) => [cScale(i), oScale(n.mean)]))
         .concat(
-          gc.map((n, i) => [cScale(999 - i), oScale(1 - ns[999 - i].mean / 2)])
-        )
+          gc.map((n, i) => [cScale(999 - i), oScale(1 - ns[999 - i].mean / 2)]),
+        ),
     );
     pathProps.meanAT = { fill: palette.colors[0], stroke: "none" };
     paths.meanGC = d3RadialLine()(
       [[cScale(0), oScale(0)]]
         .concat(gc.map((n, i) => [cScale(i), oScale(n.mean)]))
         .concat(
-          gc.map((n, i) => [cScale(999 - i), oScale(0 + ns[999 - i].mean / 2)])
-        )
+          gc.map((n, i) => [cScale(999 - i), oScale(0 + ns[999 - i].mean / 2)]),
+        ),
     );
     pathProps.meanGC = { fill: palette.colors[1], stroke: "none" };
     paths.maxNlower = d3RadialLine()(
       [[cScale(0), oScale(1)]]
         .concat(ns.map((n, i) => [cScale(i), oScale(1 - n.max / 2)]))
-        .concat(ns.map((n, i) => [cScale(999 - i), oScale(1)]))
+        .concat(ns.map((n, i) => [cScale(999 - i), oScale(1)])),
     );
     pathProps.maxNlower = {
       fill: "rgb(255,255,255)",
@@ -946,7 +946,7 @@ export const circularCurves = createSelector(
     paths.maxNupper = d3RadialLine()(
       [[cScale(0), oScale(0)]]
         .concat(ns.map((n, i) => [cScale(i), oScale(n.max / 2)]))
-        .concat(ns.map((n, i) => [cScale(999 - i), oScale(0)]))
+        .concat(ns.map((n, i) => [cScale(999 - i), oScale(0)])),
     );
     pathProps.maxNupper = {
       fill: "rgb(255,255,255)",
@@ -958,7 +958,7 @@ export const circularCurves = createSelector(
     paths.maxGC = d3RadialLine()(
       [[cScale(0), oScale(1)]]
         .concat(gc.map((n, i) => [cScale(i), oScale(n.max)]))
-        .concat(gc.map((n, i) => [cScale(999 - i), oScale(gc[999 - i].mean)]))
+        .concat(gc.map((n, i) => [cScale(999 - i), oScale(gc[999 - i].mean)])),
     );
     pathProps.maxGC = {
       fill: palette.colors[1],
@@ -970,7 +970,7 @@ export const circularCurves = createSelector(
     paths.minGC = d3RadialLine()(
       [[cScale(0), oScale(0)]]
         .concat(gc.map((n, i) => [cScale(i), oScale(n.min)]))
-        .concat(gc.map((n, i) => [cScale(999 - i), oScale(gc[999 - i].mean)]))
+        .concat(gc.map((n, i) => [cScale(999 - i), oScale(gc[999 - i].mean)])),
     );
     pathProps.minGC = {
       fill: palette.colors[0],
@@ -980,7 +980,7 @@ export const circularCurves = createSelector(
       strokeWidth: 1,
     };
     paths.meanGCstroke = d3RadialLine()(
-      gc.map((n, i) => [cScale(i), oScale(n.mean)])
+      gc.map((n, i) => [cScale(i), oScale(n.mean)]),
     );
     pathProps.meanGCstroke = {
       fill: "none",
@@ -1006,13 +1006,13 @@ export const circularCurves = createSelector(
           d3RadialLine()([
             [cScale(a), oScale(0)],
             [cScale(a), oScale(0.25)],
-          ])
+          ]),
         );
         axes.outer.ticks.major.push(
           d3RadialLine()([
             [cScale(a), oScale(1)],
             [cScale(a), oScale(0.75)],
-          ])
+          ]),
         );
         axes.inner.ticks.labels.push({
           path: d3RadialLine()([
@@ -1029,8 +1029,8 @@ export const circularCurves = createSelector(
               (i) => (
                 [cScale(b + i - 34), oScale(1.05)],
                 [cScale(b + i - 34), oScale(1.05)]
-              )
-            )
+              ),
+            ),
           ),
           text: si((tenth * b) / 100),
           fontSize: plotText.snailAxisSmall.fontSize,
@@ -1041,13 +1041,13 @@ export const circularCurves = createSelector(
           d3RadialLine()([
             [cScale(a), oScale(0)],
             [cScale(a), oScale(0.15)],
-          ])
+          ]),
         );
         axes.outer.ticks.minor.push(
           d3RadialLine()([
             [cScale(a), oScale(1)],
             [cScale(a), oScale(0.85)],
-          ])
+          ]),
         );
       }
     }
@@ -1068,7 +1068,7 @@ export const circularCurves = createSelector(
           d3Line()([
             [cScale(0) - 10, -rScale(t)],
             [cScale(0), -rScale(t)],
-          ])
+          ]),
         );
 
         axes.radial.ticks.labels.push({
@@ -1104,7 +1104,7 @@ export const circularCurves = createSelector(
           d3Line()([
             [cScale(0) - 5, -rScale(t)],
             [cScale(0), -rScale(t)],
-          ])
+          ]),
         );
       }
     } else {
@@ -1115,7 +1115,7 @@ export const circularCurves = createSelector(
           d3Line()([
             [cScale(0), -rScale(value)],
             [cScale(0) - 2 * len, -rScale(value)],
-          ])
+          ]),
         );
         for (let m = 2; m < 10; m++) {
           if (m * value < radius) {
@@ -1123,7 +1123,7 @@ export const circularCurves = createSelector(
               d3Line()([
                 [cScale(0), -rScale(m * value)],
                 [cScale(0) - len, -rScale(m * value)],
-              ])
+              ]),
             );
           }
         }
@@ -1157,13 +1157,13 @@ export const circularCurves = createSelector(
         d3RadialLine()([
           [cScale(999), oScale(0)],
           [cScale(999), oScale(0.25)],
-        ])
+        ]),
       );
       axes.outer.ticks.major.push(
         d3RadialLine()([
           [cScale(999), oScale(1)],
           [cScale(999), oScale(0.75)],
-        ])
+        ]),
       );
       if (sum[999] < circumference * 0.98 && sum[999] > circumference * 0.25) {
         axes.inner.ticks.labels.push({
@@ -1253,7 +1253,7 @@ export const circularCurves = createSelector(
       radius,
     };
     return { paths, pathProps, axes, legend, scale };
-  }
+  },
 );
 
 export const circularSelection = createSelector(
@@ -1301,7 +1301,7 @@ export const circularSelection = createSelector(
       }
     });
     return { paths, segments, ratio };
-  }
+  },
 );
 
 const funcFromPattern = (pattern) => {
@@ -1375,7 +1375,7 @@ export const getLinks = createSelector(getSelectedDatasetMeta, (meta) => {
 
 export const getIdentifiersForCurrentList = createSelector(
   (state) => getIdentifiersForList(state, "current"),
-  (ids) => ids
+  (ids) => ids,
 );
 
 export const getAllActiveData = createSelector(
@@ -1386,7 +1386,7 @@ export const getAllActiveData = createSelector(
     });
     return data;
   },
-  (data) => data
+  (data) => data,
 );
 
 export const _getAllActiveBins = createSelector(
@@ -1402,7 +1402,7 @@ export const _getAllActiveBins = createSelector(
   },
   (bins) => {
     return bins;
-  }
+  },
 );
 
 const hashCode = function (arr) {
@@ -1429,7 +1429,7 @@ export const getAllKeys = createSelector(
       }
     });
     return keys;
-  }
+  },
 );
 
 export const getTableData = createSelector(
@@ -1442,7 +1442,7 @@ export const getTableData = createSelector(
   (active, fields, data, bins, keys, list) => {
     if (!active || active == "loading") return false;
     return { data, bins, keys, list };
-  }
+  },
 );
 
 function asc(a, b) {
@@ -1505,7 +1505,7 @@ export const getSortOrder = createSelector(
       order = tableData.list.map((v, i) => i);
     }
     return order;
-  }
+  },
 );
 
 export const getTableDataForPage = createSelector(
@@ -1531,7 +1531,7 @@ export const getTableDataForPage = createSelector(
     links,
     identifiers,
     page,
-    perPage
+    perPage,
   ) => {
     if (!tableData || !plotData) return undefined;
     let data = tableData.data;
@@ -1551,7 +1551,7 @@ export const getTableDataForPage = createSelector(
       values.push(row);
     });
     return { values, keys, plot, fields, links, pages };
-  }
+  },
 );
 
 export const getCSVdata = createSelector(
@@ -1580,7 +1580,7 @@ export const getCSVdata = createSelector(
       arr.push(row);
     });
     return arr;
-  }
+  },
 );
 
 export const getBinnedColors = createSelector(
@@ -1594,7 +1594,7 @@ export const getBinnedColors = createSelector(
       });
     });
     return colors;
-  }
+  },
 );
 
 export const getSelectedDatasetTable = createSelector(
@@ -1717,7 +1717,7 @@ export const getSelectedDatasetTable = createSelector(
       }
     });
     return { data, meta };
-  }
+  },
 );
 
 export const getPhylum = createSelector(getSelectedDatasetMeta, (meta) => {
@@ -1762,7 +1762,7 @@ export const getLineage = createSelector(
       }
     });
     return { lineage: lineageArr.join("; "), target, targetRank };
-  }
+  },
 );
 
 export const getFullSummary = createSelector(
@@ -1792,9 +1792,9 @@ export const getFullSummary = createSelector(
       taxid: meta.taxon ? meta.taxon.taxid : 0,
     };
     if (lineage) {
-      (data.taxonomy.lineage = lineage.lineage),
+      ((data.taxonomy.lineage = lineage.lineage),
         (data.taxonomy.target = lineage.target),
-        (data.taxonomy.targetRank = lineage.targetRank);
+        (data.taxonomy.targetRank = lineage.targetRank));
     }
     let f = d3Format(".3r");
     if (circular) {
@@ -1845,7 +1845,7 @@ export const getFullSummary = createSelector(
           mapped: meta.reads[acc]["Mapped reads"],
           mappedPortion:
             f(
-              meta.reads[acc]["Mapped reads"] / meta.reads[acc]["Total reads"]
+              meta.reads[acc]["Mapped reads"] / meta.reads[acc]["Total reads"],
             ) * 1,
           platform: meta.reads[acc].platform,
           strategy: meta.reads[acc].strategy,
@@ -1853,5 +1853,5 @@ export const getFullSummary = createSelector(
       });
     }
     return data;
-  }
+  },
 );

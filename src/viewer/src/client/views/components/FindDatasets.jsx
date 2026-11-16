@@ -9,9 +9,9 @@ import {
 import { datasetTable, message } from "../reducers/api";
 import {
   fetchMeta,
-  getAvailableDatasetIds,
   getAvailableDatasets,
   getRepositoryIsFetching,
+  getResultCount,
   refreshStore,
   setDatasetIsActive,
 } from "../reducers/repository";
@@ -30,7 +30,7 @@ const DatasetFinder = ({
   searchTerm,
   selectedDataset,
   isFetching,
-  datasetIds,
+  datasetCount,
   datasets,
   onDatasetMount,
   onDatasetClick,
@@ -40,13 +40,13 @@ const DatasetFinder = ({
     <div className={css}>
       <Search />
       {isFetching ? <Spinner /> : null}
-      {datasetIds.length > 0 ? (
+      {datasetCount > 0 ? (
         <span
           className={styles.result_count}
           style={{ marginLeft: "1em" }}
           key="span"
         >
-          {datasetIds.length + ' datasets match "' + searchTerm + '"'}:
+          {datasetCount + ' datasets match "' + searchTerm + '"'}:
         </span>
       ) : null}
       {datasetTable && <DatasetTable onDatasetClick={onDatasetClick} />}
@@ -65,7 +65,7 @@ const DatasetFinder = ({
 const mapStateToProps = (state) => {
   return {
     isFetching: getRepositoryIsFetching(state),
-    datasetIds: getAvailableDatasetIds(state),
+    datasetCount: getResultCount(state),
     selectedDataset: getDatasetID(state),
     searchTerm: getSearchTerm(state),
   };
@@ -88,7 +88,7 @@ const mapDispatchToProps = (dispatch) => {
 };
 const FindDatasets = connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(DatasetFinder);
 
 export default FindDatasets;

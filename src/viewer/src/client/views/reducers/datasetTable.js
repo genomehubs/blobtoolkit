@@ -1,5 +1,5 @@
 import { createAction, handleAction, handleActions } from "redux-actions";
-import { getAvailableDatasetIds, getAvailableDatasets } from "./repository";
+import { getDatasetColumnOptions, getDatasetPageData } from "./datasetPage";
 
 import { createSelector } from "reselect";
 import { format as d3Format } from "d3-format";
@@ -10,7 +10,7 @@ export const setDatasetPage = createAction("SET_DATASET_PAGE");
 export const datasetPage = handleAction(
   "SET_DATASET_PAGE",
   (state, action) => action.payload,
-  0
+  0,
 );
 
 export const getDatasetPage = (state) => state.datasetPage;
@@ -20,7 +20,7 @@ export const setDatasetPageSize = createAction("SET_DATASET_PAGESIZE");
 export const datasetPageSize = handleAction(
   "SET_DATASET_PAGESIZE",
   (state, action) => action.payload,
-  10
+  10,
 );
 
 export const getDatasetPageSize = (state) => state.datasetPageSize;
@@ -30,7 +30,7 @@ export const setDatasetSorted = createAction("SET_DATASET_SORTED");
 export const datasetSorted = handleAction(
   "SET_DATASET_SORTED",
   (state, action) => action.payload,
-  []
+  [],
 );
 
 export const getDatasetSorted = (state) => state.datasetSorted;
@@ -50,7 +50,7 @@ export const datasetColumns = handleAction(
     "-busco-lineage",
     "-busco-string",
     "reads",
-  ]
+  ],
 );
 
 export const getDatasetColumns = (state) => state.datasetColumns;
@@ -260,83 +260,53 @@ let colInfo = {
   },
 };
 
-export const datasetSummaries = createSelector(
-  getAvailableDatasetIds,
-  getAvailableDatasets,
-  getDatasetColumns,
-  (ids, datasets, colNames) => {
-    let data = [];
-    ids.forEach((id) => {
-      let values = {};
-      colNames.forEach((key) => {
-        if (key.match("-busco-")) {
-          let [lineage, field] = key.split("-busco-");
-          colInfo[key] = Object.assign({}, colInfo["busco"]);
-          if (lineage) {
-            // if (!lineage.endsWith("_odb9")) lineage += "_odb9";
-            colInfo[key].title = lineage + " " + buscoFields[field];
-          } else {
-            colInfo[key].title = colInfo["busco"].title(
-              datasets[id],
-              lineage,
-              field
-            );
-          }
-          values[key] = colInfo["busco"].func(datasets[id], lineage, field);
-          if (field == "string") {
-            colInfo[key].width = 300;
-          } else if (field == "lineage") {
-            colInfo[key].width = 150;
-          }
-        } else if (key.match("-hits-")) {
-          let [taxon, field] = key.split("-hits-");
-          colInfo[key] = Object.assign({}, colInfo[field]);
-          if (taxon)
-            colInfo[key].title = colInfo[field].title + " (" + taxon + ")";
-          values[key] = colInfo[field].func(datasets[id], taxon, field);
+// Builds one table row per dataset record for the given column ids.
+const summarise = (records, colNames) =>
+  records.map((dataset) => {
+    let values = {};
+    colNames.forEach((key) => {
+      if (key.match("-busco-")) {
+        let [lineage, field] = key.split("-busco-");
+        colInfo[key] = Object.assign({}, colInfo["busco"]);
+        if (lineage) {
+          // if (!lineage.endsWith("_odb9")) lineage += "_odb9";
+          colInfo[key].title = lineage + " " + buscoFields[field];
         } else {
-          values[key] = colInfo[key].func(datasets[id]);
+          colInfo[key].title = colInfo["busco"].title(dataset, lineage, field);
         }
-      });
-      data.push(values);
-    });
-    return data;
-  }
-);
-
-export const hitTaxa = createSelector(
-  getAvailableDatasetIds,
-  getAvailableDatasets,
-  (ids, datasets) => {
-    let taxa = {};
-    ids.forEach((id) => {
-      if (datasets[id].summaryStats && datasets[id].summaryStats.hits) {
-        Object.keys(datasets[id].summaryStats.hits).forEach((taxon) => {
-          if (taxon != "total") {
-            taxa[taxon] = true;
-          }
-        });
+        values[key] = colInfo["busco"].func(dataset, lineage, field);
+        if (field == "string") {
+          colInfo[key].width = 300;
+        } else if (field == "lineage") {
+          colInfo[key].width = 150;
+        }
+      } else if (key.match("-hits-")) {
+        let [taxon, field] = key.split("-hits-");
+        colInfo[key] = Object.assign({}, colInfo[field]);
+        if (taxon)
+          colInfo[key].title = colInfo[field].title + " (" + taxon + ")";
+        values[key] = colInfo[field].func(dataset, taxon, field);
+      } else {
+        values[key] = colInfo[key].func(dataset);
       }
     });
-    return Object.keys(taxa).sort((a, b) => (a > b ? 1 : -1));
-  }
+    return values;
+  });
+
+// Rows for the current page of search results, served by the API.
+export const datasetPageSummaries = createSelector(
+  getDatasetPageData,
+  getDatasetColumns,
+  (pageData, colNames) => summarise(pageData.results, colNames),
 );
 
-export const buscoLineages = createSelector(
-  getAvailableDatasetIds,
-  getAvailableDatasets,
-  (ids, datasets) => {
-    let lineages = {};
-    ids.forEach((id) => {
-      if (datasets[id].summaryStats && datasets[id].summaryStats.busco) {
-        Object.keys(datasets[id].summaryStats.busco).forEach((lineage) => {
-          lineages[lineage] = true;
-        });
-      }
-    });
-    return Object.keys(lineages).sort((a, b) => (a > b ? 1 : -1));
-  }
-);
+export const getDatasetPageTotal = (state) => getDatasetPageData(state).total;
+
+// Hit taxa and BUSCO lineages across every match, served by the API for the column pickers.
+export const hitTaxa = (state) => getDatasetColumnOptions(state).hitTaxa;
+
+export const buscoLineages = (state) =>
+  getDatasetColumnOptions(state).buscoLineages;
 
 const ascComma = (a, b) => {
   if (a.length === b.length) {
@@ -348,7 +318,7 @@ const ascComma = (a, b) => {
 export const columnInfo = createSelector(
   () => colInfo,
   getDatasetColumns,
-  datasetSummaries,
+  datasetPageSummaries,
   (obj, columns) => {
     let info = {};
     Object.keys(obj).forEach((key) => {
@@ -368,7 +338,7 @@ export const columnInfo = createSelector(
       }
     });
     return info;
-  }
+  },
 );
 
 export const listingColumns = createSelector(columnInfo, (groupedColumns) => {
@@ -421,37 +391,6 @@ export const listingColumns = createSelector(columnInfo, (groupedColumns) => {
   // })
   return columns;
 });
-
-export const getDatasetCSVdata = createSelector(
-  columnInfo,
-  datasetSummaries,
-  (columns, data) => {
-    let arr = [];
-    let cells = [];
-    Object.keys(columns).forEach((groupName) => {
-      let group = columns[groupName];
-      Object.keys(group).forEach((key) => {
-        if (group[key].active) {
-          cells.push(colInfo[key].title);
-        }
-      });
-    });
-    arr.push(cells);
-    data.forEach((row) => {
-      cells = [];
-      Object.keys(columns).forEach((groupName) => {
-        let group = columns[groupName];
-        Object.keys(group).forEach((key) => {
-          if (group[key].active) {
-            cells.push(row[key]);
-          }
-        });
-      });
-      arr.push(cells);
-    });
-    return arr;
-  }
-);
 
 export const datasetTableReducers = {
   datasetPage,
